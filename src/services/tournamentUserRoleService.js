@@ -1,6 +1,6 @@
 // client/src/services/tournamentUserRoleService.js
-
-const BASE = '/api/tournaments';
+const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
+const BASE = `${API_BASE_URL}/api/tournaments`;
 
 export async function listRoles(tournamentId) {
   const res = await fetch(`${BASE}/${tournamentId}/roles`, {

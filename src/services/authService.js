@@ -1,8 +1,9 @@
 // client/src/services/authService.js
-const API = '/api/auth';
+const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
+const AUTH_API = `${API_BASE_URL}/api/auth`;
 
 export async function register(data) {
-  const res = await fetch(`${API}/register`, {
+  const res = await fetch(`${AUTH_API}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -12,7 +13,7 @@ export async function register(data) {
 }
 
 export async function login(data) {
-  const res = await fetch(`${API}/login`, {
+  const res = await fetch(`${AUTH_API}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -22,14 +23,14 @@ export async function login(data) {
 }
 
 export async function logout() {
-  await fetch(`${API}/logout`, {
+  await fetch(`${AUTH_API}/logout`, {
     method: 'POST',
     credentials: 'include',
   });
 }
 
 export async function fetchProfile() {
-  const res = await fetch('/api/auth/profile', {
+  const res = await fetch(`${AUTH_API}/profile`, {
     credentials: 'include'
   });
   if (res.status === 401) {

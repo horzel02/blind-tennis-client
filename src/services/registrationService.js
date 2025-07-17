@@ -1,86 +1,102 @@
 // client/src/services/registrationService.js
-const BASE = '/api/registrations';
+const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
+
+// Definicje bazowych ścieżek API
+const REGISTRATION_API = `${API_BASE_URL}/api/registrations`;
+const TOURNAMENT_API_PREFIX = `${API_BASE_URL}/api/tournaments`;
 
 export async function createRegistration(tournamentId) {
-  const res = await fetch(`/api/tournaments/${tournamentId}/registrations`, {
+  const res = await fetch(`${TOURNAMENT_API_PREFIX}/${tournamentId}/registrations`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' }
   });
-  if (!res.ok) throw new Error('Błąd podczas wysyłania zgłoszenia');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Błąd podczas wysyłania zgłoszenia');
+  }
   return res.json();
 }
 
 export async function getRegistrationsByTournament(tournamentId) {
-  const res = await fetch(`/api/tournaments/${tournamentId}/registrations`, {
+  const res = await fetch(`${TOURNAMENT_API_PREFIX}/${tournamentId}/registrations`, {
     credentials: 'include',
   });
-  if (!res.ok) throw new Error('Błąd pobierania zgłoszeń');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Błąd pobierania zgłoszeń');
+  }
   return res.json();
 }
 
 export async function updateRegistrationStatus(regId, data) {
-  const res = await fetch(`/api/registrations/${regId}`, {
+  const res = await fetch(`${REGISTRATION_API}/${regId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Błąd aktualizacji zgłoszenia');
   }
   return res.json();
 }
 
 export async function deleteRegistration(regId) {
-  const res = await fetch(`/api/registrations/${regId}`, {
+  const res = await fetch(`${REGISTRATION_API}/${regId}`, {
     method: 'DELETE',
     credentials: 'include'
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Błąd usuwania zgłoszenia');
   }
   return res.json();
 }
 
 export async function getAcceptedCount(tournamentId) {
-  const res = await fetch(`/api/tournaments/${tournamentId}/registrations/count`);
-  if (!res.ok) throw new Error('Błąd pobierania liczby uczestników');
+  const res = await fetch(`${TOURNAMENT_API_PREFIX}/${tournamentId}/registrations/count`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Błąd pobierania liczby uczestników');
+  }
   const json = await res.json();
   return json.acceptedCount;
 }
 
 export async function getMyRegistration(tournamentId) {
-  const res = await fetch(`/api/tournaments/${tournamentId}/registrations/me`, {
+  const res = await fetch(`${TOURNAMENT_API_PREFIX}/${tournamentId}/registrations/me`, {
     credentials: 'include'
   });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error('Błąd pobierania mojego zgłoszenia');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Błąd pobierania mojego zgłoszenia');
+  }
   return res.json();
 }
 
 export async function inviteUser(tournamentId, userId) {
-  const res = await fetch(`/api/tournaments/${tournamentId}/invite`, {
+  const res = await fetch(`${TOURNAMENT_API_PREFIX}/${tournamentId}/invite`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Błąd zaproszenia gracza');
   }
   return res.json();
 }
 
 export async function getMyRegistrations() {
-  const res = await fetch(`/api/registrations/mine`, {
+  const res = await fetch(`${REGISTRATION_API}/mine`, {
     credentials: 'include'
   })
   if (!res.ok) {
-    const err = await res.json().catch(()=>({ error: res.statusText }))
+    const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || 'Błąd pobierania Twoich zgłoszeń')
   }
   return res.json()

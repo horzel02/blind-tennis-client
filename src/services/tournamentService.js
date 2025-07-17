@@ -1,11 +1,12 @@
 // client/src/services/tournamentService.js
-const BASE = '/api/tournaments';
+const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
+
+const BASE = `${API_BASE_URL}/api/tournaments`;
 
 export async function getAllTournaments() {
-  const res = await fetch('/api/tournaments', { credentials: 'include' });
+  const res = await fetch(`${BASE}`, { credentials: 'include' });
   if (!res.ok) throw new Error('Błąd pobierania turniejów');
-  // tutaj dostaniesz już pole `isOrganizer` w każdej turze
-  return res.json();  
+  return res.json();
 }
 
 export async function getMyTournaments() {
