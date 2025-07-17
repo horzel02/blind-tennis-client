@@ -1,0 +1,193 @@
+/* client/src/styles/tournamentRegistrationsAdmin.css */
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 1) Podstawowe zmiany tabeli (szersza, lekki cień, itp.)          */
+/* ─────────────────────────────────────────────────────────────── */
+.registrations-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.registrations-table th,
+.registrations-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.registrations-table thead {
+  background-color: #f1f1f1;
+}
+
+.registrations-table thead th {
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.registrations-table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.registrations-table tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 2) Kolory statusów (reg-admin-status‐…)                         */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-admin-status-pending {
+  color: #d9822b; /* pomarańczowy */
+  font-weight: 600;
+}
+
+.reg-admin-status-accepted {
+  color: #2e7d32; /* zielony */
+  font-weight: 600;
+}
+
+.reg-admin-status-rejected {
+  color: #c62828; /* czerwony */
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 3) Styl przycisków (bulk, accept/reject, cancel/restore)       */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-action-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  margin: 0 0.25rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.reg-action-accept {
+  background-color: #2e7d32;
+  color: white;
+}
+.reg-action-accept:hover {
+  background-color: #1b5e20;
+}
+
+.reg-action-reject {
+  background-color: #c62828;
+  color: white;
+}
+.reg-action-reject:hover {
+  background-color: #8e0000;
+}
+
+.reg-action-cancel {
+  background-color: #666666;
+  color: white;
+}
+.reg-action-cancel:hover {
+  background-color: #333333;
+}
+
+.reg-action-restore {
+  background-color: #1976d2;
+  color: white;
+}
+.reg-action-restore:hover {
+  background-color: #0d47a1;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 4) Inputy i selecty w panelu filtrów (lekkie obramowanie)       */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-admin-search {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.reg-admin-select {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.reg-admin-date {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 5) Podsumowanie (reg-summary)                                   */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-summary {
+  background-color: #fdfdfd;
+  border-left: 4px solid #44238c;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 6) Pasek Bulk‐Actions (bulk-actions-bar)                        */
+/* ─────────────────────────────────────────────────────────────── */
+.bulk-actions-bar {
+  background-color: #f7f7f7;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 7) Paginacja                                                     */
+/* ─────────────────────────────────────────────────────────────── */
+.pagination button {
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.pagination button:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pagination span {
+  font-size: 0.9rem;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 8) Link do profilu zawodnika (styl)                              */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-username-link {
+  color: #44238c;
+  font-weight: 500;
+}
+.reg-username-link:hover {
+  text-decoration: underline;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 9) Komunikaty błędów, loading etc.                               */
+/* ─────────────────────────────────────────────────────────────── */
+.error {
+  color: #c62828;
+  margin: 1rem 0;
+  font-weight: 600;
+}
+

@@ -1,0 +1,94 @@
+/* tournamentList.css */
+
+/* --------------------------------------------------------- */
+/* 1) Kontener + układ sidebar + grid (per-komponentowy, nie duplikujemy .card/.pagination) */
+.tournaments-page.container {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.content-with-filters {
+  display: flex;
+  gap: 1rem;
+}
+
+.filters {
+  flex: 0 0 240px;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.tournament-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  align-self: flex-start; /* żeby nie rozciągało się pod sidebar */
+}
+
+/* --------------------------------------------------------- */
+/* 2) Controls Bar: nagłówek z wyszukaj / sort / reset */
+.controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.controls-bar h1 {
+  flex: 1 1 200px;
+  margin: 0;
+}
+.controls-bar input[type="text"] {
+  flex: 1 1 200px;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.controls-bar select {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------- */
+/* 3) Przycisk “Resetuj filtry” (bazuje na .btn-clear z globals.css) */
+.btn-clear {
+  background-color: #f7f7f7;
+  border: 1px solid var(--ct-muted);
+  color: var(--ct-primary);
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+.btn-clear:hover,
+.btn-clear:focus {
+  background-color: var(--ct-primary);
+  color: #fff;
+  border-color: var(--ct-accent);
+}
+.btn-clear:disabled {
+  background-color: #fafafa;
+  border-color: #cccccc;
+  color: #cccccc;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------- */
+/* 4) “Brak wyników” */
+.no-results {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+.no-results p {
+  font-size: 1.1rem;
+  color: var(--ct-dark);
+}
