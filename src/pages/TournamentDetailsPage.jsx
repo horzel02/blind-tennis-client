@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import InvitePlayerModal from '../components/InvitePlayerModal';
-import '../styles/TournamentDetails.css';
+import '../styles/tournamentDetails.css';
 import { ChevronRight } from 'lucide-react';
 
 import * as tournamentService from '../services/tournamentService';
