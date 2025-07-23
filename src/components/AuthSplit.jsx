@@ -1,3 +1,4 @@
+// src/components/AuthSplit.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,15 +25,16 @@ export default function AuthSplit({ mode = 'login' }) {
     try {
       if (isLogin) {
         await login(form);
-        toast.success('Zalogowano pomyślnie');
+        toast.success('Zalogowano pomyślnie!');
         navigate('/');
       } else {
         await register(form);
-        toast.success('Rejestracja zakończona sukcesem');
+        toast.success('Rejestracja zakończona sukcesem!');
         navigate('/login');
       }
     } catch (err) {
-      console.error(err);
+      console.error("Błąd logowania/rejestracji:", err);
+      toast.error(err.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie.');
     }
   };
 
@@ -112,7 +114,7 @@ export default function AuthSplit({ mode = 'login' }) {
           <h3>{isLogin ? 'Witaj ponownie!' : 'Dołącz do nas!'}</h3>
           <p>
             {isLogin
-              ? 'Zaloguj się lub przejdź do rejestracji jeśli nie masz jescze konta.'
+              ? 'Zaloguj się lub przejdź do rejestracji jeśli nie masz jeszcze konta.'
               : 'Zarejestruj konto lub przejdź do logowania jeśli już je masz'}
           </p>
           <Link

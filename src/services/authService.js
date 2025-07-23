@@ -9,6 +9,10 @@ export async function register(data) {
     credentials: 'include',
     body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || 'Rejestracja nieudana.');
+  }
   return res.json();
 }
 
@@ -19,6 +23,13 @@ export async function login(data) {
     credentials: 'include',
     body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const errorData = await res.json();
+    const error = new Error(errorData.message || 'Logowanie nieudane.');
+    error.status = res.status;
+    throw error;
+  }
+
   return res.json();
 }
 

@@ -16,26 +16,34 @@ export function AuthProvider({ children }) {
         setUser(profile);
       } catch (err) {
         if (err.status === 401) {
-          // nie jesteś zalogowany
           setUser(null);
         } else {
-          console.error(err);
+          console.error("Błąd podczas ładowania profilu:", err);
         }
       } finally {
-        // koniec ładowania, pozwalamy PrivateRoute na dalszą pracę
         setLoading(false);
       }
     })();
   }, []);
 
   const login = async creds => {
-    const u = await authService.login(creds);
-    setUser(u);
-    return u;
+    try {
+      const u = await authService.login(creds);
+      setUser(u);
+      return u;
+    } catch (err) {
+      setUser(null);
+      throw err;
+    }
   };
 
   const register = async creds => {
-    await authService.register(creds);
+    try {
+      await authService.register(creds);
+    } catch (err) {
+      console.error("Błąd podczas rejestracji:", err);
+      throw err;
+    }
   };
 
   const logout = async () => {
