@@ -12,7 +12,7 @@ export default function Home() {
             Dołącz i organizuj<br />turnieje Blind Tennis
           </h1>
           <p className="hero-desc">
-            Znajdź nadchodzące turnieje i zgłoś swój udział, lub stwórz własne wydarzenie – wszystko w pełni dostępne dla osób niewidomych i słabowidzących.
+            Znajdź nadchodzące turnieje i zgłoś swój udział, lub stwórz własne wydarzenie - wszystko w pełni dostępne dla osób niewidomych i słabowidzących.
           </p>
           <div className="hero-buttons">
             <Link to="/tournaments" className="btn-primary">

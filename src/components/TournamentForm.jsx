@@ -8,12 +8,13 @@ import {
   Settings2
 } from 'lucide-react'
 import '../styles/tournamentForm.css'
+import Breadcrumbs from './Breadcrumbs';
 
 export default function TournamentForm({
-  initialData = null,      // jeśli edycja, rodzic przekaże obiekt
-  onSubmit,                // callback do zapisu (create/update)
-  title,                   // nagłówek formularza
-  submitText               // tekst przycisku końcowego
+  initialData = null,
+  onSubmit,
+  title,
+  submitText
 }) {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -118,6 +119,7 @@ export default function TournamentForm({
     }
   }, [form.start_date]);
 
+  // Poprawiono: `handleChange` było zduplikowane, usunięto drugą definicję
   const handleChange = e => {
     const { name, value, type, checked } = e.target
     setForm(f => ({
@@ -144,8 +146,16 @@ export default function TournamentForm({
     onSubmit(form)
   }
 
+  // Breadcrumbs
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Turnieje', href: '/tournaments' },
+    { label: isEdit ? 'Edytuj Turniej' : 'Utwórz Turniej' }
+  ];
+
   return (
     <section className="wizard-shell container">
+      <Breadcrumbs items={breadcrumbItems} />
       <h2>{title}</h2>
 
       <div className="wizard-header">

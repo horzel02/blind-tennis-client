@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as registrationService from '../services/registrationService';
 import * as tournamentService from '../services/tournamentService';
 import '../styles/tournamentRegistrationsAdmin.css';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 
 export default function TournamentRegistrationsAdmin() {
@@ -269,10 +270,18 @@ export default function TournamentRegistrationsAdmin() {
   if (loading) return <p>Ładowanie zgłoszeń…</p>;
   if (error) return <p className="error">Błąd: {error}</p>;
 
+    // Breadcrumbs
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Turnieje', href: '/tournaments' },
+    { label: tournament?.name ?? 'Ładowanie nazwy turnieju...', href: `/tournaments/${id}` },
+    { label: 'Zarządzanie zgłoszeniami'}
+  ];
 
   // ─── RENDER 
   return (
     <div className="container" style={{ padding: '1rem', marginBottom: '2rem' }}>
+      <Breadcrumbs items={breadcrumbItems} />
       <h1 style={{ marginBottom: '1.5rem' }}>
         Zgłoszenia do turnieju «{tournament?.name ?? `#${id}`}»
       </h1>

@@ -1,17 +1,31 @@
 /* ========================================================================== */
-/* 1. SPLIT-CONTAINER – układ dwóch paneli obok siebie                          */
+/* 0. AUTH PAGE WRAPPER - nowy kontener dla całej strony autoryzacji        */
+/* ========================================================================== */
+.auth-page-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+  min-height:  70vh;
+  box-sizing: border-box;
+}
+
+/* ========================================================================== */
+/* 1. SPLIT-CONTAINER – układ dwóch paneli obok siebie                        */
 /* ========================================================================== */
 .auth-split-container {
   width: 90%;
+  max-width: 800px;
   display: flex;
   justify-content: center;
   align-items: stretch;
   gap: 0;
   flex-wrap: nowrap;
+  margin-top: 2rem;
 }
 
 /* ========================================================================== */
-/* 2. FORM PANEL                                                                */
+/* 2. FORM PANEL                                                              */
 /* ========================================================================== */
 .panel--form {
   flex: 1 1 350px;
@@ -31,7 +45,7 @@
   color: var(--ct-darkest);
 }
 
-/* 2.2 Przycisk formularza – korzysta z klasy .btn-primary z globals.css       */
+/* 2.2 Przycisk formularza  */
 .panel--form .auth-button {
   margin-top: 1rem;
 }
@@ -47,7 +61,7 @@
 }
 
 /* ========================================================================== */
-/* 3. ASIDE PANEL                                                               */
+/* 3. ASIDE PANEL                                                             */
 /* ========================================================================== */
 .panel--aside {
   flex: 1 1 350px;
@@ -65,7 +79,7 @@
 }
 
 /* ========================================================================== */
-/* 4. ILLUSTRATION WRAPPER – styl otoczki obrazka                                */
+/* 4. ILLUSTRATION WRAPPER – styl otoczki obrazka                             */
 /* ========================================================================== */
 .aside-illustration-wrapper {
   background: rgba(255, 255, 255, 0.2);
@@ -80,7 +94,7 @@
 }
 
 /* ========================================================================== */
-/* 5. ASIDE TEXT                                                               */
+/* 5. ASIDE TEXT                                                              */
 /* ========================================================================== */
 .aside-text h3 {
   font-size: 1.75rem;
@@ -94,7 +108,7 @@
 }
 
 /* ========================================================================== */
-/* 6. ASIDE BUTTON                                                             */
+/* 6. ASIDE BUTTON                                                            */
 /* ========================================================================== */
 
 .aside-button {
@@ -112,18 +126,28 @@
 }
 
 /* ========================================================================== */
-/* 7. RESPONSIVE (MOBILE) – jeśli szerokość < 800px                              */
+/* 7. RESPONSIVE (MOBILE) – jeśli szerokość < 800px                           */
 /* ========================================================================== */
 @media (max-width: 800px) {
   .auth-split-container {
     flex-direction: column;
     flex-wrap: wrap;
     gap: 2rem 0;
+    margin-top: 1.5rem;
+  }
+
+  .panel--form {
+    border-radius: 8px 8px 0 0;
+  }
+
+  .panel--aside {
+    border-radius: 0 0 8px 8px;
   }
 }
 
+
 /* ========================================================================== */
-/* 8. GLOBAL AUTH INPUT (inputy logowania/rejestracji)                         */
+/* 8. GLOBAL AUTH INPUT (inputy logowania/rejestracji)                        */
 /* ========================================================================== */
 .auth-input {
   display: block;
@@ -141,7 +165,7 @@
 }
 
 /* ========================================================================== */
-/* 9. GLOBAL AUTH-INPUT HOVER / FOCUS                                           */
+/* 9. GLOBAL AUTH-INPUT HOVER / FOCUS                                         */
 /* ========================================================================== */
 .auth-input:hover,
 .auth-input:focus {

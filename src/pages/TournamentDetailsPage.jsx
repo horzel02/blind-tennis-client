@@ -2,61 +2,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Clock, MapPin, Users,
+  Clock, MapPin, Users,
   Calendar, Share2, Download
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import InvitePlayerModal from '../components/InvitePlayerModal';
 import '../styles/tournamentDetails.css';
-import { ChevronRight } from 'lucide-react';
 
 import * as tournamentService from '../services/tournamentService';
 import * as registrationService from '../services/registrationService';
 import * as roleService from '../services/tournamentUserRoleService';
+import Breadcrumbs from '../components/Breadcrumbs';
 
-function Breadcrumbs({ items }) {
-  return (
-    <nav aria-label="breadcrumb" className="breadcrumbs">
-      <ol>
-        {items.map((i, idx) => (
-          <li key={idx} className="breadcrumb-item">
-            {idx < items.length - 1 ? (
-              <>
-                <a href={i.href}>{i.label}</a>
-                <ChevronRight size={16} aria-hidden="true" className="breadcrumb-separator" />
-              </>
-            ) : (
-              <span aria-current="page">{i.label}</span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
-function Chip({ children }) {
-  return <span className="chip">{children}</span>;
-}
-
-function ProgressBar({ current, total }) {
-  const pct = total ? Math.round((current / total) * 100) : 0;
-  return (
-    <div className="progress-bar" aria-label={`${current}/${total} uczestników`}>
-      <div className="progress-fill" style={{ width: `${pct}%` }} />
-      <span className="progress-text">{current}/{total}</span>
-    </div>
-  );
-}
-
-function MapPreview({ address }) {
-  const src = `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
-  return (
-    <div className="map-preview">
-      <iframe title="Mapa" src={src} frameBorder="0" allowFullScreen />
-    </div>
-  );
-}
 
 export default function TournamentDetailsPage() {
   const { user } = useAuth();
@@ -122,7 +79,6 @@ export default function TournamentDetailsPage() {
     fetchMyRegistration();
     fetchAcceptedCount();
 
-    // próbuj pobrać role, ale nie przerywaj aplikacji przy 403
     roleService.listRoles(tournament.id)
       .then(setRoles)
       .catch(() => setRoles([]));
@@ -208,17 +164,16 @@ export default function TournamentDetailsPage() {
     }
   };
 
-const handleRemoveOrganizer = async (roleRecordId) => {
-  if (!confirm('Usunąć organizatora?')) return;
-  try {
-    // <- tu wywołujesz roleService.removeRole, a nie "removeRole"
-    await roleService.removeRole(tournament.id, roleRecordId);
-    setRoles(await roleService.listRoles(tournament.id));
-    alert('Usunięto organizatora');
-  } catch (err) {
-    alert(err.message);
-  }
-};
+  const handleRemoveOrganizer = async (roleRecordId) => {
+    if (!confirm('Usunąć organizatora?')) return;
+    try {
+      await roleService.removeRole(tournament.id, roleRecordId);
+      setRoles(await roleService.listRoles(tournament.id));
+      alert('Usunięto organizatora');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   // Akceptacja/odrzucenie zaproszenia
   const handleAcceptInvite = async () => {
@@ -274,16 +229,35 @@ const handleRemoveOrganizer = async (roleRecordId) => {
     }
   };
 
-  // ─── Wczesne return, po hooks ───────────────────────────────────────────────
-  if (loading) return <p>Ładowanie…</p>;
-  if (error) return <p className="error">Błąd: {error}</p>;
-  if (!tournament) return <p>Turniej nie znaleziono.</p>;
-
-
   // Lista organizerów z tabeli:
   const organizerIds = new Set(
     roles.filter(r => r.role === 'organizer').map(r => r.user.id)
   );
+
+  // Funkcja do renderowania chipa 
+  const renderChip = (text) => <span className="chip">{text}</span>;
+
+  // Funkcja do renderowania paska postępu 
+  const renderProgressBar = (current, total) => {
+    const pct = total ? Math.round((current / total) * 100) : 0;
+    return (
+      <div className="progress-bar" aria-label={`${current}/${total} uczestników`}>
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+        <span className="progress-text">{current}/{total}</span>
+      </div>
+    );
+  };
+
+  // Funkcja do renderowania podglądu mapy 
+  function MapPreview({ address }) {
+    const src = `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+    return (
+      <div className="map-preview">
+        <iframe title="Mapa" src={src} frameBorder="0" allowFullScreen />
+      </div>
+    );
+  }
+
 
   return (
     <section className="tournament-details container" role="main">
@@ -292,17 +266,14 @@ const handleRemoveOrganizer = async (roleRecordId) => {
         { label: 'Turnieje', href: '/tournaments' },
         { label: name }
       ]} />
-      <button onClick={() => navigate(-1)} className="btn-back">
-        <ArrowLeft size={20} /> Powrót
-      </button>
 
       <div className="details-grid">
         <div className="left-panel">
           <h1 className="details-title">{name}</h1>
           {description && <p className="details-description">{description}</p>}
           <div className="chips">
-            <Chip>{category}</Chip>
-            <Chip>{gender}</Chip>
+            {renderChip(category)}
+            {renderChip(gender)}
           </div>
           <p className="icon-label">
             <Clock size={16} /> {new Date(start_date).toLocaleDateString()} –{' '}
@@ -316,7 +287,7 @@ const handleRemoveOrganizer = async (roleRecordId) => {
           </p>
           <div className="progress-container">
             <p><Users size={16} /> Uczestnicy:</p>
-            <ProgressBar current={acceptedCount} total={participant_limit} />
+            {renderProgressBar(acceptedCount, participant_limit)}
           </div>
         </div>
 

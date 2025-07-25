@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import TournamentFilters from './TournamentFilters';
 import TournamentCard from './TournamentCard';
 import '../styles/tournamentList.css';
+import Breadcrumbs from './Breadcrumbs';
 
 function normalizeStr(str) {
   return str
@@ -141,8 +142,17 @@ export default function TournamentList({
   if (loading) return <p aria-live="polite">Ładowanie turniejów…</p>;
   if (error) return <p className="error">Błąd: {error}</p>;
 
+  // 9. Breadcrumbs
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Turnieje' }
+  ];
+
   return (
     <div className="tournaments-page container">
+
+      <Breadcrumbs items={breadcrumbItems} />
+
       {/* 10) CONTROLS BAR */}
       <div className="controls-bar">
         <h1>{title}</h1>
