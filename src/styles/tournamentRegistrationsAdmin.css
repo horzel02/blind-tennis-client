@@ -37,20 +37,20 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 2) Kolory statusów (reg-admin-status‐…)                         */
+/* 2) Kolory statusów (reg-admin-status‐…)                          */
 /* ─────────────────────────────────────────────────────────────── */
 .reg-admin-status-pending {
-  color: #d9822b; /* pomarańczowy */
+  color: #d9822b;
   font-weight: 600;
 }
 
 .reg-admin-status-accepted {
-  color: #2e7d32; /* zielony */
+  color: #2e7d32;
   font-weight: 600;
 }
 
 .reg-admin-status-rejected {
-  color: #c62828; /* czerwony */
+  color: #c62828;
   font-weight: 600;
 }
 
@@ -100,7 +100,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 4) Inputy i selecty w panelu filtrów (lekkie obramowanie)       */
+/* 4) Inputy i selecty w panelu filtrów (lekkie obramowanie)      */
 /* ─────────────────────────────────────────────────────────────── */
 .reg-admin-search {
   width: 100%;
@@ -136,7 +136,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 6) Pasek Bulk‐Actions (bulk-actions-bar)                        */
+/* 6) Pasek Bulk‐Actions (bulk-actions-bar)                       */
 /* ─────────────────────────────────────────────────────────────── */
 .bulk-actions-bar {
   background-color: #f7f7f7;
@@ -172,7 +172,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 8) Link do profilu zawodnika (styl)                              */
+/* 8) Link do profilu zawodnika                                    */
 /* ─────────────────────────────────────────────────────────────── */
 .reg-username-link {
   color: #44238c;
@@ -183,7 +183,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 9) Komunikaty błędów, loading etc.                               */
+/* 9) Komunikaty błędów, loading                                   */
 /* ─────────────────────────────────────────────────────────────── */
 .error {
   color: #c62828;
@@ -191,3 +191,81 @@
   font-weight: 600;
 }
 
+/* ─────────────────────────────────────────────────────────────── */
+/* 10) Mobilne                                                     */
+/* ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .registrations-table {
+    display: block;
+    width: 100%;
+  }
+
+  .registrations-table thead,
+  .registrations-table tbody,
+  .registrations-table th,
+  .registrations-table td,
+  .registrations-table tr {
+    display: block;
+  }
+
+  .registrations-table thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+
+  .registrations-table tbody tr {
+    border: 1px solid #eee;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .registrations-table td {
+    border: none;
+    border-bottom: 1px solid #eee;
+    position: relative;
+    padding-left: 50%;
+    text-align: right;
+  }
+
+  .registrations-table td:before {
+    position: absolute;
+    top: 0;
+    left: 6px;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: 600;
+    content: attr(data-label);
+  }
+
+  .reg-admin-search,
+  .reg-admin-select,
+  .reg-admin-date {
+    margin-bottom: 0.75rem;
+  }
+
+  .bulk-actions-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .bulk-actions-bar .reg-action-btn {
+    width: 100%;
+    margin: 0.25rem 0;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+}

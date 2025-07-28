@@ -39,6 +39,9 @@ export default function TournamentList({
     status: []
   });
 
+  // Nowy stan do kontroli widoczności modala filtrów
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+
   // 3. Zakres wyników po filtrowaniu/sortowaniu
   const [filtered, setFiltered] = useState([]);
 
@@ -176,6 +179,15 @@ export default function TournamentList({
           <option value="nameDesc">Nazwa (Z → A)</option>
         </select>
 
+        {/* Nowy przycisk "Filtruj" - widoczny tylko na mobile/tablet */}
+        <button
+          className="btn-filter-toggle"
+          onClick={() => setShowFiltersModal(true)}
+          aria-label="Otwórz filtry"
+        >
+          <i className="fas fa-filter"></i> Filtruj
+        </button>
+
         <button
           type="button"
           className="btn-clear"
@@ -209,12 +221,15 @@ export default function TournamentList({
 
       {/* 11) SIDEBAR + GRID KAFELEK */}
       <div className="content-with-filters">
-        <TournamentFilters
-          filters={filters}
-          setFilters={setFilters}
-          categories={['B1', 'B2', 'B3', 'B4']}
-          genders={['M', 'W', 'Coed']}
-        />
+        {/* Sidebar filtrów - będzie ukryty/pokazany przez CSS na podstawie rozmiaru ekranu */}
+        <aside className="filters filters-panel"> {/* Dodano filters-panel dla spójności */}
+            <TournamentFilters
+                filters={filters}
+                setFilters={setFilters}
+                categories={['B1', 'B2', 'B3', 'B4']}
+                genders={['M', 'W', 'Coed']}
+            />
+        </aside>
 
         <div className="tournament-grid">
           {filtered.length === 0 ? (
@@ -267,6 +282,52 @@ export default function TournamentList({
           >
             ⏭
           </button>
+        </div>
+      )}
+
+      {/* 13) MODAL FILTRÓW - WIDOCZNY TYLKO NA MOBILE/TABLET PO KLIKNIĘCIU */}
+      {showFiltersModal && (
+        <div className="filters-modal-backdrop" onClick={() => setShowFiltersModal(false)}>
+          <div className="filters-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="filters-modal-close-btn" onClick={() => setShowFiltersModal(false)}>
+              &times; {/* Ikona X */}
+            </button>
+            <h2>Filtry</h2>
+            <div className="filters-panel"> {/* Użyj klasy filters-panel dla spójności stylów */}
+              <TournamentFilters
+                filters={filters}
+                setFilters={setFilters}
+                categories={['B1', 'B2', 'B3', 'B4']}
+                genders={['M', 'W', 'Coed']}
+              />
+            </div>
+            {/* Opcjonalnie: przyciski "Zastosuj filtry", "Wyczyść" w modalu */}
+            <div className="modal-actions">
+              <button
+                className="btn-primary"
+                onClick={() => setShowFiltersModal(false)}
+              >
+                Zastosuj filtry
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setFilters({
+                    category: [],
+                    gender: [],
+                    city: '',
+                    dateFrom: '',
+                    dateTo: '',
+                    status: []
+                  });
+                  // Opcjonalnie zamknij modal po wyczyszczeniu
+                  // setShowFiltersModal(false);
+                }}
+              >
+                Wyczyść
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

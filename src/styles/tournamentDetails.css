@@ -1,20 +1,30 @@
 /* tournamentDetails.css */
 
+/* ========================================================================== */
+/* 1. OGÓLNE ELEMENTY NA GÓRZE STRONY                                        */
+/* ========================================================================== */
+
+/* Nawigacja breadcrumbs */
 .breadcrumbs {
   margin-bottom: 1rem;
 }
+
 .breadcrumbs ol {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
+
 .breadcrumbs li::after {
   content: '›';
   margin: 0 0.5rem;
 }
+
 .breadcrumbs li:last-child::after {
   content: '';
 }
 
+/* Przycisk "Wstecz" */
 .btn-back {
   background: transparent;
   border: none;
@@ -27,29 +37,36 @@
   color: var(--ct-dark);
   transition: color 0.2s;
 }
+
 .btn-back:hover,
 .btn-back:focus {
   color: var(--ct-primary);
 }
 
-/* Układ “lewopanel / prawy panel” */
+/* ========================================================================== */
+/* 2. GŁÓWNY UKŁAD DETALI (Lewy Panel / Prawy Panel)                         */
+/* ========================================================================== */
 .details-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
-  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
+/* Lewy panel */
 .left-panel h1.details-title {
   font-size: 2rem;
   margin-bottom: 0.5rem;
 }
 
+/* Sekcja chipów */
 .chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
+
 .chip {
   background-color: var(--ct-accent);
   color: #fff;
@@ -58,6 +75,7 @@
   font-size: 0.85rem;
 }
 
+/* Etykieta z ikoną*/
 .icon-label {
   display: flex;
   align-items: center;
@@ -67,6 +85,7 @@
   color: var(--ct-dark);
 }
 
+/* Kontener paska postępu */
 .progress-container {
   margin-top: 1rem;
 }
@@ -78,11 +97,13 @@
   height: 1rem;
   margin-top: 0.3rem;
 }
+
 .progress-fill {
   background-color: var(--ct-primary);
   height: 100%;
   border-radius: 4px 0 0 4px;
 }
+
 .progress-text {
   position: absolute;
   top: 0;
@@ -90,8 +111,10 @@
   transform: translateX(-50%);
   font-size: 0.75rem;
   color: #fff;
+  white-space: nowrap;
 }
 
+/* Podgląd mapy */
 .map-preview iframe {
   width: 100%;
   height: 200px;
@@ -99,27 +122,15 @@
   border-radius: 4px;
 }
 
-.details-actions.sticky {
-  position: sticky;
-  bottom: 0;
-  background: #fff;
-  padding: 1rem 0;
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  border-top: 1px solid #ddd;
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Sekcja organizatora – uporządkowany flex + odstępy między przyciskami     */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* 3. SEKCJA ORGANIZATORA                                                     */
+/* ========================================================================== */
 .organizer-section {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  margin-bottom: 2rem;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  align-items: stretch;
 }
 
 .organizer-section h2 {
@@ -129,16 +140,7 @@
   color: var(--ct-dark);
 }
 
-/* • cała sekcja to grid 2 kolumny */
-.organizer-section {
-  display: grid;
-  grid-template-columns: minmax(250px, 1fr)  minmax(200px, 1fr);
-  gap: 2rem;
-  margin: 2rem 0;
-  align-items: start;
-}
-
-/* —————— LEWY PANEL —————— */
+/* Panel akcji organizatora */
 .organizer-actions h2 {
   margin-bottom: 0.5rem;
   font-size: 1.25rem;
@@ -151,7 +153,7 @@
   gap: 0.75rem;
 }
 
-/* —————— PRAWY PANEL —————— */
+/* Lista organizatorów */
 .organizer-list h2 {
   margin-bottom: 0.5rem;
   font-size: 1.25rem;
@@ -174,25 +176,81 @@
 }
 
 .organizer-list .org-name {
-  flex: 1;            /* nazwa zajmuje pozostałą przestrzeń */
+  flex: 1;
 }
 
-/* Drobne poprawki przycisków w tej sekcji */
-.organizer-actions .btn-secondary,
-.organizer-actions .btn-delete,
-.organizer-actions .btn-primary {
-  white-space: nowrap;
-}
-
+/* Nagłówek listy organizatorów */
 .organizer-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   margin-bottom: 0.75rem;
 }
 
-/* Opcjonalnie: malutka poprawka marginesu przycisku */
 .organizer-list-header .btn-add-org {
-  margin-left: 1rem;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+
+/* ========================================================================== */
+/* 4. PASEK AKCJI                                                             */
+/* ========================================================================== */
+.details-actions.sticky {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #fff;
+  padding: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 999;
+}
+
+/* ========================================================================== */
+/* 5. MEDIA QUERIES DLA WIĘKSZYCH EKRANÓW (TABLET I DESKTOP)                  */
+/* ========================================================================== */
+@media (min-width: 768px) {
+  .details-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  /* Układ sekcji organizatora */
+  .organizer-section {
+    display: grid;
+    grid-template-columns: minmax(250px, 1fr) minmax(200px, 1fr);
+    gap: 2rem;
+    margin: 2rem 0;
+    align-items: start;
+  }
+
+  .details-actions.sticky {
+    position: static;
+    border-top: none;
+    box-shadow: none;
+    padding: 0;
+    justify-content: flex-start;
+    margin-top: 1.5rem;
+  }
+
+  .organizer-list-header .btn-add-org {
+    margin-left: 1rem;
+  }
+}
+
+/* ========================================================================== */
+/* 6. DODATKOWE POPRAWKI DLA PRZYCISKÓW W SEKCJACH                            */
+/* ========================================================================== */
+.organizer-actions .btn-secondary,
+.organizer-actions .btn-delete,
+.organizer-actions .btn-primary {
   white-space: nowrap;
 }
