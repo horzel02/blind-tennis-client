@@ -1,6 +1,6 @@
 // SidebarMenu.jsx
 import React, { useRef, useEffect } from 'react';
-import './sidebarMenu.css';
+import '../styles/sidebarMenu.css';
 import { X } from 'lucide-react';
 
 // Komponent ikony "X"
