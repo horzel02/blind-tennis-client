@@ -1,12 +1,14 @@
 /* ---------------- Header ---------------- */
 .header {
   position: fixed;
-  top: 0; left: 0;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 64px; /* Stała wysokość dla desktopu */
+  height: 64px;
+  /* Stała wysokość dla desktopu */
   background-color: var(--ct-dark);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   z-index: 1000;
@@ -15,7 +17,8 @@
 .header-inner {
   display: flex;
   width: 100%;
-  padding: 0 1.5rem; /* Domyślny padding dla desktopu */
+  padding: 0 1.5rem;
+  /* Domyślny padding dla desktopu */
   justify-content: space-between;
   align-items: center;
 }
@@ -35,13 +38,15 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: #fff;
-  white-space: nowrap; /* Zapobiega zawijaniu się tekstu logo */
+  white-space: nowrap;
+  /* Zapobiega zawijaniu się tekstu logo */
 }
 
 /* ---------------- Nav & Buttons ---------------- */
 .header-nav {
   display: flex;
-  gap: 1rem; /* Domyślny odstęp dla desktopu */
+  gap: 1rem;
+  /* Domyślny odstęp dla desktopu */
   flex-wrap: wrap;
 }
 
@@ -59,7 +64,8 @@
   border: none;
   cursor: pointer;
   color: #fff;
-  flex-shrink: 0; /* Zapobiega kurczeniu się przycisków na mniejszych ekranach */
+  flex-shrink: 0;
+  /* Zapobiega kurczeniu się przycisków na mniejszych ekranach */
 }
 
 .icon-button:hover {
@@ -102,11 +108,13 @@
 
 /* ---------------- Dropdown User Menu ---------------- */
 .user-menu {
-  position: relative; /* Keep relative for desktop dropdown */
+  position: relative;
+  /* Keep relative for desktop dropdown */
 }
 
 .user-menu .dropdown-content {
-  position: absolute; /* Keep absolute for desktop dropdown */
+  position: absolute;
+  /* Keep absolute for desktop dropdown */
   right: 0;
   top: 100%;
   margin-top: 6px;
@@ -114,7 +122,7 @@
   color: #333;
   min-width: 160px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -140,16 +148,19 @@
 
 .user-menu .dropdown-content a:hover,
 .user-menu .dropdown-content button:hover {
-  background-color: rgba(0,0,0,0.05);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* --- Stylowanie dla desktopów (od 768px w górę) --- */
 @media (min-width: 768px) {
   .header-inner {
-    padding: 0 1.5rem; /* Przywróć większy padding na desktopie */
+    padding: 0 1.5rem;
+    /* Przywróć większy padding na desktopie */
   }
+
   .header-nav {
-    gap: 1rem; /* Przywróć większy odstęp na desktopie */
+    gap: 1rem;
+    /* Przywróć większy odstęp na desktopie */
   }
 }
 
@@ -161,15 +172,18 @@
   }
 
   .header-inner {
-    flex-direction: column; /* Ułóż logo i nawigację w kolumnie */
-    align-items: flex-end; /* *** NOWA ZMIANA: WYRÓWNANIE CAŁEGO BLOKU DO PRAWEJ *** */
+    flex-direction: column;
+    /* Ułóż logo i nawigację w kolumnie */
+    align-items: flex-end;
+    /* *** NOWA ZMIANA: WYRÓWNANIE CAŁEGO BLOKU DO PRAWEJ *** */
     padding: 0.8rem 1rem;
   }
 
   .header-logo {
     margin-bottom: 0.5rem;
     width: 100%;
-    justify-content: center; /* *** NOWA ZMIANA: WYRÓWNANIE LOGO W SWOIM KONTENERZE DO PRAWEJ *** */
+    justify-content: center;
+    /* *** NOWA ZMIANA: WYRÓWNANIE LOGO W SWOIM KONTENERZE DO PRAWEJ *** */
   }
 
   .header-logo-text {
@@ -182,7 +196,8 @@
 
   .header-nav {
     width: 100%;
-    justify-content: flex-end; /* *** NOWA ZMIANA: WYRÓWNANIE ELEMENTÓW NAWIGACJI DO PRAWEJ *** */
+    justify-content: flex-end;
+    /* *** NOWA ZMIANA: WYRÓWNANIE ELEMENTÓW NAWIGACJI DO PRAWEJ *** */
     gap: 0.3rem;
     flex-wrap: wrap;
   }
@@ -190,24 +205,29 @@
   .icon-button .tooltip {
     display: none;
   }
-
-  /* --- NOWA ZMIANA: MENU ROZWIJANE NA MOBILNYCH (OVERLAY Z DOŁU EKRANU) --- */
-  .user-menu .dropdown-content {
-    position: fixed; /* Pozycjonowanie względem viewportu */
-    bottom: 0; /* Pojawia się od dołu ekranu */
+  
+  .user-menu.open .dropdown-content {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
     left: 0;
-    width: 100%; /* Rozciąga się na całą szerokość */
-    max-height: 80vh; /* Ogranicz wysokość, aby nie zajmowało całego ekranu */
-    border-radius: 8px 8px 0 0; /* Zaokrągl tylko górne rogi */
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.2); /* Cień od góry */
-    padding: 1rem 0; /* Dodatkowy padding dla lepszego wyglądu */
-    z-index: 1001; /* Upewnij się, że jest nad nagłówkiem (z-index header to 1000) */
+    width: 100%;
+    max-height: 80vh;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+    padding: 1rem 0;
+    z-index: 1001;
+    background-color: #fff;
+    color: #333;
+
   }
 
   .user-menu .dropdown-content a,
   .user-menu .dropdown-content button {
-    text-align: center; /* Wyśrodkuj tekst w elementach dropdown */
-    padding: 12px 1rem; /* Większy padding dla łatwiejszego dotykania */
+    text-align: center;
+    /* Wyśrodkuj tekst w elementach dropdown */
+    padding: 12px 1rem;
+    /* Większy padding dla łatwiejszego dotykania */
   }
 }
 
@@ -229,11 +249,14 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    justify-content: flex-end; /* Utrzymaj wyrównanie do prawej nawet przy przewijaniu */
+    justify-content: flex-end;
+    /* Utrzymaj wyrównanie do prawej nawet przy przewijaniu */
     gap: 0.5rem;
-    padding-bottom: 5px; /* Dodatkowy padding, jeśli na bardzo małych ekranach pojawia się scrollbar poziomy */
+    padding-bottom: 5px;
+    /* Dodatkowy padding, jeśli na bardzo małych ekranach pojawia się scrollbar poziomy */
   }
-  .header-nav > * {
+
+  .header-nav>* {
     flex-shrink: 0;
   }
 }
