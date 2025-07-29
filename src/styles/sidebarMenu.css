@@ -27,7 +27,7 @@
   width: 280px;
   max-width: 85%;
   height: 100%;
-  background-color: #fff;
+  background-color: #fff; /* Tło menu */
   color: var(--ct-darkest);
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.2);
   transform: translateX(100%);
@@ -64,19 +64,79 @@
   cursor: pointer;
   color: #fff;
   padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-menu-close-btn:hover {
   opacity: 0.8;
 }
 
-/* Zawartość menu (linki) */
+/* Zawartość menu (linki i inne elementy) */
 .sidebar-menu-content {
   display: flex;
   flex-direction: column;
   padding: 1rem 0;
   flex-grow: 1;
   overflow-y: auto;
+}
+
+/* Style dla sekcji z informacjami o użytkowniku */
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+}
+
+.sidebar-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 0.5rem;
+  border: 2px solid var(--ct-primary);
+}
+
+.sidebar-avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: var(--ct-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-username {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ct-darkest);
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-email {
+  font-size: 0.85rem;
+  color: var(--ct-muted);
+}
+
+/* Tytuły sekcji w sidebarze */
+.sidebar-section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ct-muted);
+  padding: 0.5rem 1rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
 }
 
 .sidebar-menu-content a,
@@ -90,6 +150,9 @@
   color: var(--ct-darkest);
   text-decoration: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .sidebar-menu-content a:hover,
@@ -97,7 +160,7 @@
   background-color: #f0f0f0;
 }
 
-/* Dodatkowe odstępy dla przycisków na końcu menu */
+/* Przycisk wylogowania  */
 .sidebar-menu-content button.logout-btn {
   margin-top: auto;
   border-top: 1px solid #eee;
@@ -106,4 +169,11 @@
 }
 .sidebar-menu-content button.logout-btn:hover {
   background-color: rgba(68, 35, 140, 0.05);
+}
+
+/* Media Query dla desktopu */
+@media (min-width: 768px) {
+  .sidebar-menu-panel {
+    width: 320px;
+  }
 }

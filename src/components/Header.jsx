@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+// Header.jsx
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -7,7 +8,6 @@ import {
   LogIn,
   UserPlus,
   User,
-  X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -18,24 +18,15 @@ export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Stan dla desktopowego menu rozwijanego (dropdown)
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const menuRef = useRef(null);
-  const firstItemRef = useRef(null);
-
-  // Stan dla mobilnego menu bocznego (sidebar)
+  // Stan dla otwarcia/zamknięcia menu bocznego
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Funkcja do przełączania desktopowego menu rozwijanego
-  const toggleDropdown = () => setDropdownOpen(open => !open);
-
-  // Funkcja do przełączania mobilnego menu bocznego
+  // Funkcja do przełączania menu bocznego
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
   const handleLogout = async () => {
     try {
       await logout();
-      setDropdownOpen(false);
       setSidebarOpen(false);
       navigate('/', { replace: true });
       toast.success('Wylogowano pomyślnie');
@@ -44,42 +35,6 @@ export default function Header() {
       toast.error('Wystąpił błąd podczas wylogowywania.');
     }
   };
-
-  // Efekt do obsługi kliknięcia poza desktopowym menu i klawisza ESC
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    }
-
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') {
-        setDropdownOpen(false);
-      }
-    }
-
-    if (dropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleKeyDown);
-      firstItemRef.current?.focus();
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [dropdownOpen]);
-
-
-  // Funkcja do otwierania odpowiedniego menu w zależności od szerokości ekranu
-  const handleUserMenuClick = () => {
-    if (window.innerWidth < 768) {
-      toggleSidebar();
-    } else {
-      toggleDropdown();
-    }
-  };
-
 
   return (
     <nav role="navigation" aria-label="Główne menu" className="header">
@@ -106,42 +61,17 @@ export default function Header() {
           </Link>
 
           {user ? (
-            <div
-              ref={menuRef}
-              className={`user-menu${dropdownOpen ? ' open' : ''}`}
-              aria-haspopup="true"
-              aria-expanded={dropdownOpen}
-            >
+            // Przycisk użytkownika
+            <div className="user-menu">
               <button
                 type="button"
                 className="icon-button"
                 aria-label="Menu użytkownika"
-                onClick={handleUserMenuClick}
+                onClick={toggleSidebar}
               >
                 <User size={24} color="#fff" />
                 <span className="tooltip">Twoje konto</span>
               </button>
-
-              {/* Desktopowe menu rozwijane */}
-              {/* Ta klasa 'desktop-only' zostanie ukryta na mobilnych przez header.css */}
-              <div className="dropdown-content desktop-only">
-                <Link to="/profile" ref={firstItemRef} onClick={() => setDropdownOpen(false)}>
-                  Informacje o użytkowniku
-                </Link>
-                <Link
-                  to="/tournaments/mine"
-                  onClick={() => setDropdownOpen(false)}
-                >
-                  Moje turnieje
-                </Link>
-                <Link
-                  to="/registrations/mine"
-                  onClick={() => setDropdownOpen(false)}
-                >
-                  Moje zgłoszenia
-                </Link>
-                <button onClick={handleLogout}>Wyloguj</button>
-              </div>
             </div>
           ) : (
             <>
@@ -159,17 +89,30 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Renderowanie uniwersalnego komponentu SidebarMenu dla mobilnych */}
       {user && (
         <SidebarMenu
           isOpen={sidebarOpen}
-          onClose={toggleSidebar} // Przekaż toggleSidebar jako onClose
+          onClose={toggleSidebar}
           title="Twoje Konto"
+          user={user}
         >
-          {/* Zawartość menu bocznego */}
+          <div className="sidebar-user-info">
+            {user.profilePictureUrl ? (
+              <img src={user.profilePictureUrl} alt="Awatar użytkownika" className="sidebar-avatar" />
+            ) : (
+              <div className="sidebar-avatar-placeholder">
+                <User size={40} color="#fff" />
+              </div>
+            )}
+            <p className="sidebar-username">{user.username || "Użytkownik"}</p>
+            {user.email && <p className="sidebar-email">{user.email}</p>}
+          </div>
+
+          <div className="sidebar-section-title">Nawigacja</div>
           <Link to="/profile" onClick={toggleSidebar}>Informacje o użytkowniku</Link>
           <Link to="/tournaments/mine" onClick={toggleSidebar}>Moje turnieje</Link>
           <Link to="/registrations/mine" onClick={toggleSidebar}>Moje zgłoszenia</Link>
+          
           <button onClick={handleLogout} className="logout-btn">Wyloguj</button>
         </SidebarMenu>
       )}
