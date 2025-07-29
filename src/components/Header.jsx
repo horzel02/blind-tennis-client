@@ -104,7 +104,11 @@ export default function Header() {
                 <User size={40} color="#fff" />
               </div>
             )}
-            <p className="sidebar-username">{user.username || "Użytkownik"}</p>
+            <p className="sidebar-username">
+              {user.name && user.surname
+                ? `${user.name} ${user.surname}`
+                : user.username || "Użytkownik"}
+            </p>
             {user.email && <p className="sidebar-email">{user.email}</p>}
           </div>
 
