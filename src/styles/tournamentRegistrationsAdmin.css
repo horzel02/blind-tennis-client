@@ -251,6 +251,10 @@
   font-weight: 600;
 }
 
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 9) Mobile styles (breakpoint 767px)                            */
+/* ─────────────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .table-responsive-wrapper {
     display: none;
@@ -303,11 +307,6 @@
     color: var(--ct-darkest);
   }
 
-  /* .card-header .reg-admin-status-pending,
-  .card-header .reg-admin-status-approved,
-  .card-header .reg-admin-status-rejected {
-  } */
-
   .card-details {
     padding: 1rem;
     border-top: 1px solid #eee;
@@ -341,18 +340,65 @@
   .card-actions-mobile .btn-icon:hover {
     background-color: #f0f0f0;
   }
-
+  
   /* Kolory dla przycisków akcji */
   .card-actions-mobile .btn-approve {
     color: var(--ct-green);
     border-color: var(--ct-green);
   }
   .card-actions-mobile .btn-reject {
-    color: var(--ct-red);
-    border-color: var(--ct-red);
+    color: red;
+    border-color: red;
   }
   .card-actions-mobile .btn-delete {
-    color: var(--ct-red);
-    border-color: var(--ct-red);
+    color: var(--ct-primary);
+    border-color: var(--ct-primary);
   }
+
+  .reg-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .bulk-actions-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+  .bulk-actions-bar button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .reg-admin-header {
+    display: flex !important; 
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem;
+    padding: 0 1rem;
+    grid-template-columns: unset !important;
+    column-gap: unset !important;
+  }
+
+  .reg-admin-search,
+  .reg-admin-select,
+  .reg-admin-date {
+    width: calc(50% - (0.75rem / 2)) !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+  }
+
+  .reg-admin-header .btn-secondary {
+    width: calc(50% - (0.75rem / 2)) !important;
+    box-sizing: border-box !important;
+    margin-top: 0 !important;
+  }
+
+  .container h1 {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
 }
