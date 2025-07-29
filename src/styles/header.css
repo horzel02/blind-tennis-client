@@ -173,7 +173,7 @@
   .header-logo {
     margin-bottom: 0.5rem;
     width: 100%;
-    justify-content: flex-end;
+    justify-content: center;
   }
 
   .header-logo-text {
