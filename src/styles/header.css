@@ -169,7 +169,7 @@
   .header-logo {
     margin-bottom: 0.5rem;
     width: 100%;
-    justify-content: flex-end; /* *** NOWA ZMIANA: WYRÓWNANIE LOGO W SWOIM KONTENERZE DO PRAWEJ *** */
+    justify-content: center; /* *** NOWA ZMIANA: WYRÓWNANIE LOGO W SWOIM KONTENERZE DO PRAWEJ *** */
   }
 
   .header-logo-text {
