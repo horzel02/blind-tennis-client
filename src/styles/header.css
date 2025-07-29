@@ -162,14 +162,14 @@
 
   .header-inner {
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-end; /* WYRÓWNANIE CAŁEGO BLOKU DO PRAWEJ */
     padding: 0.8rem 1rem;
   }
 
   .header-logo {
     margin-bottom: 0.5rem;
     width: 100%;
-    justify-content: flex-end;
+    justify-content: center;
   }
 
   .header-logo-text {
@@ -182,7 +182,7 @@
 
   .header-nav {
     width: 100%;
-    justify-content: flex-end;
+    justify-content: flex-end; /* WYRÓWNANIE ELEMENTÓW NAWIGACJI DO PRAWEJ */
     gap: 0.3rem;
     flex-wrap: wrap;
   }
@@ -191,17 +191,17 @@
     display: none;
   }
 
-  /* *** MENU ROZWIJANE NA MOBILNYCH  *** */
+  /* *** POPRAWIONE: MENU ROZWIJANE NA MOBILNYCH (OVERLAY Z DOŁU EKRANU) *** */
   .user-menu.open .dropdown-content {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
     
-    height: auto;
-    max-height: 80vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    /* --- Kluczowe zmiany --- */
+    height: auto !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
     
     border-radius: 8px 8px 0 0;
     box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
@@ -219,7 +219,7 @@
   }
 }
 
-/* --- Dalsze dostosowania dla bardzo małych ekranów --- */
+/* --- Dostosowania dla bardzo małych ekranów (do 480px) --- */
 @media (max-width: 480px) {
   .header-inner {
     padding: 0.5rem 0.5rem;
