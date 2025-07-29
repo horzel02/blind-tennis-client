@@ -37,106 +37,49 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 2) Kolory statusów (reg-admin-status‐…)                          */
+/* 2) Kolory statusów (reg-admin-status‐…)                         */
 /* ─────────────────────────────────────────────────────────────── */
-.reg-admin-status-pending {
-  color: #d9822b;
-  font-weight: 600;
-}
-
-.reg-admin-status-accepted {
-  color: #2e7d32;
-  font-weight: 600;
-}
-
-.reg-admin-status-rejected {
-  color: #c62828;
-  font-weight: 600;
-}
+.reg-admin-status-pending { color: orange; font-weight: 600; }
+.reg-admin-status-approved { color: green; font-weight: 600; }
+.reg-admin-status-rejected { color: red; font-weight: 600; }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 3) Styl przycisków (bulk, accept/reject, cancel/restore)       */
+/* 3) Komórki akcji (przyciski)                                   */
 /* ─────────────────────────────────────────────────────────────── */
-.reg-action-btn {
+.actions-cell {
+  white-space: nowrap;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 4) Przyciski ikon (btn-icon)                                    */
+/* ─────────────────────────────────────────────────────────────── */
+.btn-icon {
+  background: none;
   border: none;
-  border-radius: 4px;
-  padding: 0.4rem 0.8rem;
-  margin: 0 0.25rem;
-  font-size: 0.85rem;
+  padding: 0.2rem;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.reg-action-accept {
-  background-color: #2e7d32;
-  color: white;
-}
-.reg-action-accept:hover {
-  background-color: #1b5e20;
-}
-
-.reg-action-reject {
-  background-color: #c62828;
-  color: white;
-}
-.reg-action-reject:hover {
-  background-color: #8e0000;
-}
-
-.reg-action-cancel {
-  background-color: #666666;
-  color: white;
-}
-.reg-action-cancel:hover {
-  background-color: #333333;
-}
-
-.reg-action-restore {
-  background-color: #1976d2;
-  color: white;
-}
-.reg-action-restore:hover {
-  background-color: #0d47a1;
-}
-
-/* ─────────────────────────────────────────────────────────────── */
-/* 4) Inputy i selecty w panelu filtrów (lekkie obramowanie)      */
-/* ─────────────────────────────────────────────────────────────── */
-.reg-admin-search {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
+  transition: background-color 0.2s;
+  color: var(--ct-dark);
 }
 
-.reg-admin-select {
-  width: 100%;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: white;
+.btn-icon:hover {
+  background-color: #eee;
 }
 
-.reg-admin-date {
-  width: 100%;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
+.btn-icon.btn-approve { color: var(--ct-green); }*/
+.btn-icon.btn-reject { color: var(--ct-accent); }
+.btn-icon.btn-delete { color: red; }
+
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 5) Podsumowanie (reg-summary)                                   */
-/* ─────────────────────────────────────────────────────────────── */
-.reg-summary {
-  background-color: #fdfdfd;
-  border-left: 4px solid #44238c;
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-/* ─────────────────────────────────────────────────────────────── */
-/* 6) Pasek Bulk‐Actions (bulk-actions-bar)                       */
+/* 5) Pasek akcji masowych (bulk-actions-bar)                      */
 /* ─────────────────────────────────────────────────────────────── */
 .bulk-actions-bar {
   background-color: #f7f7f7;
@@ -146,11 +89,33 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  margin-bottom: 1rem;
+}
+.bulk-actions-bar label {
+  font-size: 0.9rem;
+  color: var(--ct-dark);
+}
+.bulk-actions-bar select {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+.bulk-actions-bar button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 7) Paginacja                                                     */
+/* 6) Paginacja (przenieś do globals.css, jeśli jest globalna)   */
 /* ─────────────────────────────────────────────────────────────── */
+.pagination {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
 .pagination button {
   background: transparent;
   border: 1px solid #ccc;
@@ -160,8 +125,11 @@
   cursor: pointer;
   transition: background 0.2s;
 }
-.pagination button:hover:not(:disabled) {
-  background-color: #e0e0e0;
+.pagination button:hover:not(:disabled),
+.pagination button.active {
+  background-color: var(--ct-primary);
+  color: #fff;
+  border-color: var(--ct-primary);
 }
 .pagination button:disabled {
   opacity: 0.5;
@@ -172,100 +140,137 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 8) Link do profilu zawodnika                                    */
+/* 7) Link do profilu zawodnika (styl)                              */
 /* ─────────────────────────────────────────────────────────────── */
 .reg-username-link {
-  color: #44238c;
+  color: var(--ct-primary);
   font-weight: 500;
+  text-decoration: none;
 }
 .reg-username-link:hover {
   text-decoration: underline;
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 9) Komunikaty błędów, loading                                   */
+/* 8) Responsywność dla Tabeli i Widoku Kart                       */
 /* ─────────────────────────────────────────────────────────────── */
-.error {
-  color: #c62828;
-  margin: 1rem 0;
-  font-weight: 600;
+
+.registrations-cards-list {
+  display: none; 
 }
 
-/* ─────────────────────────────────────────────────────────────── */
-/* 10) Mobilne                                                     */
-/* ─────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+.table-responsive-wrapper {
+  overflow-x: visible;
+  box-shadow: none;
+}
+.registrations-table {
+  min-width: unset;
+}
+
+
+@media (max-width: 767px) {
+  .table-responsive-wrapper {
+    display: none;
   }
 
-  .registrations-table {
-    display: block;
-    width: 100%;
-  }
-
-  .registrations-table thead,
-  .registrations-table tbody,
-  .registrations-table th,
-  .registrations-table td,
-  .registrations-table tr {
-    display: block;
-  }
-
-  .registrations-table thead tr {
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-  }
-
-  .registrations-table tbody tr {
-    border: 1px solid #eee;
-    margin-bottom: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  }
-
-  .registrations-table td {
-    border: none;
-    border-bottom: 1px solid #eee;
-    position: relative;
-    padding-left: 50%;
-    text-align: right;
-  }
-
-  .registrations-table td:before {
-    position: absolute;
-    top: 0;
-    left: 6px;
-    width: 45%;
-    padding-right: 10px;
-    white-space: nowrap;
-    text-align: left;
-    font-weight: 600;
-    content: attr(data-label);
-  }
-
-  .reg-admin-search,
-  .reg-admin-select,
-  .reg-admin-date {
-    margin-bottom: 0.75rem;
-  }
-
-  .bulk-actions-bar {
+  /* Pokaż listę kart na mobile */
+  .registrations-cards-list {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .registration-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .card-header:hover {
+    background-color: #f0f0f0;
+  }
+
+  .card-title {
+    display: flex;
+    align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem;
+    flex-grow: 1;
   }
 
-  .bulk-actions-bar .reg-action-btn {
-    width: 100%;
-    margin: 0.25rem 0;
+  .card-checkbox {
+    transform: scale(1.2);
   }
 
-  .pagination {
+  .card-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ct-darkest);
+  }
+
+  /*.card-header .reg-admin-status-pending,
+  .card-header .reg-admin-status-approved,
+  .card-header .reg-admin-status-rejected {
+     Upewnij się, że kolory statusów są widoczne na tle nagłówka 
+     Jeśli są zbyt jasne, możesz zmienić ich kolor lub dodać tło 
+  }*/
+
+  .card-details {
+    padding: 1rem;
+    border-top: 1px solid #eee;
+  }
+
+  .card-details p {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--ct-dark);
+  }
+  .card-details p strong {
+    color: var(--ct-darkest);
+  }
+
+  .card-actions-mobile {
+    display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+  .card-actions-mobile .btn-icon {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border: 1px solid #eee;
+    background-color: #fff;
+    color: var(--ct-dark);
+    display: inline-flex;
+    gap: 0.5rem;
+  }
+  .card-actions-mobile .btn-icon:hover {
+    background-color: #f0f0f0;
+  }
+  /* Kolory dla przycisków akcji */
+  .card-actions-mobile .btn-approve {
+    color: var(--ct-green);
+    border-color: var(--ct-green);
+  }
+  .card-actions-mobile .btn-reject {
+    color: var(--ct-accent);
+    border-color: var(--ct-accent);
+  }
+  .card-actions-mobile .btn-delete {
+    color: red;
+    border-color: red;
   }
 }

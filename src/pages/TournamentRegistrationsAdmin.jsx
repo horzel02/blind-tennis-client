@@ -6,14 +6,15 @@ import { useAuth } from '../contexts/AuthContext';
 import * as registrationService from '../services/registrationService';
 import * as tournamentService from '../services/tournamentService';
 import '../styles/tournamentRegistrationsAdmin.css';
+import '../styles/globals.css';
 import Breadcrumbs from '../components/Breadcrumbs';
-
+import { ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 
 export default function TournamentRegistrationsAdmin() {
   const { id } = useParams();
   const { user } = useAuth();
 
-  // ─── STANY PODSTAWOWE 
+  // ─── STANY PODSTAWOWE
   const [regs, setRegs] = useState([]);
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,15 +26,39 @@ export default function TournamentRegistrationsAdmin() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  // ─── SORTOWANIE PO KOLUMNACH 
+  // ─── SORTOWANIE PO KOLUMNACH
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
 
-  // ─── PAGINACJA 
+  // ─── PAGINACJA
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 20;
 
-  // FILTR + SORT + RANGE DATE 
+  // ─── STANY DLA RESPONSYWNOŚCI
+  const [expandedRows, setExpandedRows] = useState({});
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Efekt do wykrywania szerokości ekranu
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  // Funkcja do przełączania rozwinięcia karty/wiersza
+  const toggleRowExpansion = (registrationId) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [registrationId]: !prev[registrationId],
+    }));
+  };
+
+  // FILTR + SORT + RANGE DATE
   const filteredAndSorted = useMemo(() => {
     let arr = [...regs];
 
@@ -105,7 +130,7 @@ export default function TournamentRegistrationsAdmin() {
   // ─── BULK ACTIONS
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // POBIERANIE DANYCH (zgłoszenia + turniej) 
+  // POBIERANIE DANYCH (zgłoszenia + turniej)
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -154,7 +179,7 @@ export default function TournamentRegistrationsAdmin() {
     }
   };
 
-  // ─── BULK CHANGES 
+  // ─── BULK CHANGES
   // 1) Zmiana checkbox: pojedynczy toggler
   const toggleSelect = (regId) => {
     setSelectedIds(prev => {
@@ -231,7 +256,7 @@ export default function TournamentRegistrationsAdmin() {
     document.body.removeChild(link);
   };
 
-  // ───SUMMARY – liczby w czasie rzeczywistym 
+  // ───SUMMARY – liczby w czasie rzeczywistym
   const summaryCounts = useMemo(() => {
     const total = regs.length;
     const pending = regs.filter(r => r.status === 'pending').length;
@@ -241,21 +266,21 @@ export default function TournamentRegistrationsAdmin() {
     return { total, pending, accepted, rejected, invited };
   }, [regs]);
 
-  // ─── PODZIAŁ NA POSZCZEGÓLNE STRONY 
+  // ─── PODZIAŁ NA POSZCZEGÓLNE STRONY
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * perPage;
     const end = start + perPage;
     return filteredAndSorted.slice(start, end);
-  }, [filteredAndSorted, currentPage]);
+  }, [filteredAndSorted, currentPage, perPage]);
 
-  // ───przełącz na konkretną stronę 
+  // ───przełącz na konkretną stronę
   const goToPage = (pageNum) => {
     if (pageNum < 1 || pageNum > totalPages) return;
     setCurrentPage(pageNum);
     setSelectedIds([]);
   };
 
-  // ─── FUNKCJA: zamiana sortField/sortDirection 
+  // ─── zamiana sortField/sortDirection
   const toggleSort = (field) => {
     if (sortField === field) {
       setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
@@ -278,7 +303,7 @@ export default function TournamentRegistrationsAdmin() {
     { label: 'Zarządzanie zgłoszeniami' }
   ];
 
-  // ─── RENDER 
+  // ─── RENDER
   return (
     <div className="container" style={{ padding: '1rem', marginBottom: '2rem' }}>
       <Breadcrumbs items={breadcrumbItems} />
@@ -286,7 +311,7 @@ export default function TournamentRegistrationsAdmin() {
         Zgłoszenia do turnieju «{tournament?.name ?? `#${id}`}»
       </h1>
 
-      {/* ────── Podsumowanie  */}
+      {/* ────── Podsumowanie  */}
       <div className="reg-summary" style={{
         display: 'flex',
         gap: '1.5rem',
@@ -301,7 +326,7 @@ export default function TournamentRegistrationsAdmin() {
         <span style={{ color: 'blue' }}>✉️ {summaryCounts.invited} zaproszonych</span>
       </div>
 
-      {/* ──────  Bulk‐actions bar */}
+      {/* ──────  Bulk-actions bar */}
       {selectedIds.length > 0 && (
         <div className="bulk-actions-bar" style={{
           marginBottom: '1rem',
@@ -412,162 +437,273 @@ export default function TournamentRegistrationsAdmin() {
         </button>
       </div>
 
-      {/* ────── TABELA ZGŁOSZEŃ */}
+      {/* ────── TABELA ZGŁOSZEŃ (desktop) */}
       {filteredAndSorted.length === 0 ? (
         <p>Brak zgłoszeń spełniających kryteria.</p>
       ) : (
-        <div className="table-responsive">
-          <table className="registrations-table">
-            <thead>
-              <tr>
-                {/* CHECKBOX */}
-                <th style={{ width: '40px', textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    onChange={toggleSelectAllOnCurrentPage}
-                    checked={paginatedData.every(r => selectedIds.includes(r.id))}
-                  />
-                </th>
+        <>
+          {!isMobile && (
+            <div className="table-responsive-wrapper">
+              <table className="registrations-table">
+                <thead>
+                  <tr>
+                    {/* CHECKBOX */}
+                    <th style={{ width: '40px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        onChange={toggleSelectAllOnCurrentPage}
+                        checked={paginatedData.every(r => selectedIds.includes(r.id))}
+                      />
+                    </th>
 
-                <th onClick={() => toggleSort('name')} style={{ cursor: 'pointer' }}>
-                  Zawodnik
-                  {sortField === 'name' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
-                </th>
-                <th onClick={() => toggleSort('email')} style={{ cursor: 'pointer' }}>
-                  Email
-                  {sortField === 'email' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
-                </th>
-                <th onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
-                  Status
-                  {sortField === 'status' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
-                </th>
-                <th onClick={() => toggleSort('createdAt')} style={{ cursor: 'pointer' }}>
-                  Data zgłoszenia
-                  {sortField === 'createdAt' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
-                </th>
-                <th onClick={() => toggleSort('updatedAt')} style={{ cursor: 'pointer' }}>
-                  Data modyfikacji
-                  {sortField === 'updatedAt' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
-                </th>
-                <th style={{ width: '200px', textAlign: 'center' }}>Akcje</th>
-              </tr>
-            </thead>
+                    <th onClick={() => toggleSort('name')} style={{ cursor: 'pointer' }}>
+                      Zawodnik
+                      {sortField === 'name' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                    </th>
+                    <th onClick={() => toggleSort('email')} style={{ cursor: 'pointer' }}>
+                      Email
+                      {sortField === 'email' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                    </th>
+                    <th onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
+                      Status
+                      {sortField === 'status' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                    </th>
+                    <th onClick={() => toggleSort('createdAt')} style={{ cursor: 'pointer' }}>
+                      Data zgłoszenia
+                      {sortField === 'createdAt' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                    </th>
+                    <th onClick={() => toggleSort('updatedAt')} style={{ cursor: 'pointer' }}>
+                      Data modyfikacji
+                      {sortField === 'updatedAt' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                    </th>
+                    <th style={{ width: '200px', textAlign: 'center' }}>Akcje</th>
+                  </tr>
+                </thead>
 
-            <tbody>
-              {paginatedData.map(reg => (
-                <tr key={reg.id}>
-                  {/* 1) Checkbox zaznaczający wiersz */}
-                  <td data-label="Zaznacz" style={{ textAlign: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(reg.id)}
-                      onChange={() => toggleSelect(reg.id)}
-                    />
-                  </td>
+                <tbody>
+                  {paginatedData.map(reg => (
+                    <tr key={reg.id}>
+                      {/* 1) Checkbox zaznaczający wiersz */}
+                      <td data-label="Zaznacz" style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(reg.id)}
+                          onChange={() => toggleSelect(reg.id)}
+                        />
+                      </td>
 
-                  {/* 2) Zawodnik: link do profilu */}
-                  <td data-label="Zawodnik">
-                    <Link to={`/users/${reg.user.id}`} className="reg-username-link">
-                      {reg.user.name} {reg.user.surname}
-                    </Link>
-                  </td>
+                      {/* 2) Zawodnik: link do profilu */}
+                      <td data-label="Zawodnik">
+                        <Link to={`/users/${reg.user.id}`} className="reg-username-link">
+                          {reg.user.name} {reg.user.surname}
+                        </Link>
+                      </td>
 
-                  {/* 3) Email */}
-                  <td data-label="Email">{reg.user.email}</td>
+                      {/* 3) Email */}
+                      <td data-label="Email">{reg.user.email}</td>
 
-                  {/* 4) Status */}
-                  <td data-label="Status" className={
-                    reg.status === 'pending' ? 'reg-admin-status-pending'
-                      : reg.status === 'invited' ? 'reg-admin-status-invited'
-                        : reg.status === 'accepted' ? 'reg-admin-status-accepted'
-                          : 'reg-admin-status-rejected'
-                  }>
-                    {reg.status === 'pending'
-                      ? 'Oczekujące'
-                      : reg.status === 'invited'
-                        ? 'Zaproszony'
-                        : reg.status === 'accepted'
-                          ? 'Zaakceptowane'
-                          : 'Odrzucone'}
-                  </td>
+                      {/* 4) Status */}
+                      <td data-label="Status" className={
+                        reg.status === 'pending' ? 'reg-admin-status-pending'
+                          : reg.status === 'invited' ? 'reg-admin-status-invited'
+                            : reg.status === 'accepted' ? 'reg-admin-status-accepted'
+                              : 'reg-admin-status-rejected'
+                      }>
+                        {reg.status === 'pending'
+                          ? 'Oczekujące'
+                          : reg.status === 'invited'
+                            ? 'Zaproszony'
+                            : reg.status === 'accepted'
+                              ? 'Zaakceptowane'
+                              : 'Odrzucone'}
+                      </td>
 
-                  {/* 5) Data zgłoszenia */}
-                  <td data-label="Data zgłoszenia" className="reg-date-cell">
-                    {new Date(reg.createdAt).toLocaleString('pl-PL', {
-                      day: '2-digit', month: '2-digit', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit', second: '2-digit'
-                    })}
-                  </td>
+                      {/* 5) Data zgłoszenia */}
+                      <td data-label="Data zgłoszenia" className="reg-date-cell">
+                        {new Date(reg.createdAt).toLocaleString('pl-PL', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        })}
+                      </td>
 
-                  {/* 6) Data modyfikacji */}
-                  <td data-label="Data modyfikacji" className="reg-date-cell">
-                    {new Date(reg.updatedAt).toLocaleString('pl-PL', {
-                      day: '2-digit', month: '2-digit', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit', second: '2-digit'
-                    })}
-                  </td>
+                      {/* 6) Data modyfikacji */}
+                      <td data-label="Data modyfikacji" className="reg-date-cell">
+                        {new Date(reg.updatedAt).toLocaleString('pl-PL', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        })}
+                      </td>
 
-                  {/* 7) Akcje: pojedyncze (accept/reject/cancel/restore) */}
-                  <td data-label="Akcje" style={{ textAlign: 'center' }}>
-                    {reg.status === 'pending' ? (
-                      <>
-                        <button
-                          onClick={() => handleStatusChange(reg.id, 'accepted')}
-                          className="reg-action-btn reg-action-accept"
-                        >
-                          Akceptuj
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(reg.id, 'rejected')}
-                          className="reg-action-btn reg-action-reject"
-                        >
-                          Odrzuć
-                        </button>
-                      </>
+                      {/* 7) Akcje: pojedyncze (accept/reject/cancel/restore) */}
+                      <td data-label="Akcje" style={{ textAlign: 'center' }}>
+                        {reg.status === 'pending' ? (
+                          <>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'accepted')}
+                              className="reg-action-btn reg-action-accept"
+                            >
+                              Akceptuj
+                            </button>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'rejected')}
+                              className="reg-action-btn reg-action-reject"
+                            >
+                              Odrzuć
+                            </button>
+                          </>
 
-                    ) : reg.status === 'invited' ? (
-                      <>
-                        <span style={{ marginRight: 8, fontStyle: 'italic' }}>
-                          Czeka na akceptację zawodnika
-                        </span>
-                        <button
-                          onClick={() => handleCancelInvite(reg.id)}
-                          className="reg-action-btn reg-action-cancel"
-                        >
-                          Anuluj zaproszenie
-                        </button>
-                      </>
+                        ) : reg.status === 'invited' ? (
+                          <>
+                            <span style={{ marginRight: 8, fontStyle: 'italic' }}>
+                              Czeka na akceptację zawodnika
+                            </span>
+                            <button
+                              onClick={() => handleCancelInvite(reg.id)}
+                              className="reg-action-btn reg-action-cancel"
+                            >
+                              Anuluj zaproszenie
+                            </button>
+                          </>
 
-                    ) : reg.status === 'accepted' ? (
-                      <>
-                        <span className="reg-action-status-indicator">✓ Zaakceptowane</span>
-                        <button
-                          onClick={() => handleStatusChange(reg.id, 'pending')}
-                          className="reg-action-btn reg-action-cancel"
-                        >
-                          Anuluj
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="reg-action-status-indicator">✕ Odrzucone</span>
-                        <button
-                          onClick={() => handleStatusChange(reg.id, 'pending')}
-                          className="reg-action-btn reg-action-restore"
-                        >
-                          Przywróć
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
+                        ) : reg.status === 'accepted' ? (
+                          <>
+                            <span className="reg-action-status-indicator">✓ Zaakceptowane</span>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'pending')}
+                              className="reg-action-btn reg-action-cancel"
+                            >
+                              Anuluj
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="reg-action-status-indicator">✕ Odrzucone</span>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'pending')}
+                              className="reg-action-btn reg-action-restore"
+                            >
+                              Przywróć
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Widok kart dla urządzeń mobilnych */}
+          {isMobile && (
+            <div className="registrations-cards-list">
+              {paginatedData.map((reg) => (
+                <div key={reg.id} className="registration-card">
+                  <div className="card-header" onClick={() => toggleRowExpansion(reg.id)}>
+                    <div className="card-title">
+                      <input
+                        type="checkbox"
+                        className="card-checkbox"
+                        checked={selectedIds.includes(reg.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelect(reg.id);
+                        }}
+                      />
+                      <h4>{reg.user.name} {reg.user.surname}</h4>
+                    </div>
+                    <span className={
+                      reg.status === 'pending' ? 'reg-admin-status-pending'
+                        : reg.status === 'invited' ? 'reg-admin-status-invited'
+                          : reg.status === 'accepted' ? 'reg-admin-status-accepted'
+                            : 'reg-admin-status-rejected'
+                    }>
+                      {reg.status === 'pending'
+                        ? 'Oczekujące'
+                        : reg.status === 'invited'
+                          ? 'Zaproszony'
+                          : reg.status === 'accepted'
+                            ? 'Zaakceptowane'
+                            : 'Odrzucone'}
+                    </span>
+                    {expandedRows[reg.id] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </div>
+
+                  {expandedRows[reg.id] && (
+                    <div className="card-details">
+                      <p><strong>Email:</strong> {reg.user.email}</p>
+                      <p>
+                        <strong>Data zgłoszenia:</strong> {new Date(reg.createdAt).toLocaleString('pl-PL', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        })}
+                      </p>
+                      <p>
+                        <strong>Data modyfikacji:</strong> {new Date(reg.updatedAt).toLocaleString('pl-PL', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        })}
+                      </p>
+                      <div className="card-actions-mobile">
+                        {reg.status === 'pending' ? (
+                          <>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'accepted')}
+                              className="btn-icon btn-approve"
+                            >
+                              <CheckCircle size={18} /> Zatwierdź
+                            </button>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'rejected')}
+                              className="btn-icon btn-reject"
+                            >
+                              <XCircle size={18} /> Odrzuć
+                            </button>
+                          </>
+                        ) : reg.status === 'invited' ? (
+                          <>
+                            <span style={{ marginRight: 8, fontStyle: 'italic' }}>
+                              Czeka na akceptację zawodnika
+                            </span>
+                            <button
+                              onClick={() => handleCancelInvite(reg.id)}
+                              className="btn-icon btn-delete"
+                            >
+                              <Trash2 size={18} /> Anuluj zaproszenie
+                            </button>
+                          </>
+                        ) : reg.status === 'accepted' ? (
+                          <>
+                            <span className="reg-action-status-indicator">✓ Zaakceptowane</span>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'pending')}
+                              className="btn-icon btn-delete"
+                            >
+                              <Trash2 size={18} /> Anuluj
+                            </button>
+                          </>
+                        ) : ( // reg.status === 'rejected'
+                          <>
+                            <span className="reg-action-status-indicator">✕ Odrzucone</span>
+                            <button
+                              onClick={() => handleStatusChange(reg.id, 'pending')}
+                              className="btn-icon btn-approve"
+                            >
+                              <CheckCircle size={18} /> Przywróć
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* ────── PAGINACJA  */}
+      {/* ────── PAGINACJA  */}
       {filteredAndSorted.length > 0 && totalPages > 1 && (
         <div className="pagination" aria-label="Paginacja zgłoszeń">
           <button
