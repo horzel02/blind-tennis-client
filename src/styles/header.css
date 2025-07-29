@@ -18,7 +18,6 @@
   padding: 0 1.5rem;
   justify-content: space-between;
   align-items: center;
-  padding: 0 1rem;
 }
 
 .header-logo {
@@ -36,12 +35,13 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: #fff;
+  white-space: nowrap;
 }
 
 /* ---------------- Nav & Buttons ---------------- */
 .header-nav {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
@@ -59,6 +59,7 @@
   border: none;
   cursor: pointer;
   color: #fff;
+  flex-shrink: 0;
 }
 
 .icon-button:hover {
@@ -142,12 +143,86 @@
   background-color: rgba(0,0,0,0.05);
 }
 
-
+/* --- Stylowanie dla desktopów (od 768px w górę) --- */
 @media (min-width: 768px) {
   .header-inner {
     padding: 0 1.5rem;
   }
   .header-nav {
     gap: 1rem;
+  }
+}
+
+/* --- Dostosowania responsywne dla urządzeń mobilnych (do 767px włącznie) --- */
+@media (max-width: 767px) {
+  .header {
+    height: auto;
+    min-height: 64px;
+  }
+
+  .header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.8rem 1rem;
+  }
+
+  .header-logo {
+    margin-bottom: 0.5rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header-logo-text {
+    font-size: 1.1rem;
+  }
+
+  .header-logo-icon {
+    font-size: 1.6rem;
+  }
+
+  .header-nav {
+    width: 100%;
+    justify-content: space-around;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  /* Ukryj tooltipy na mobilnych, ponieważ nie są one zazwyczaj używane z dotykiem */
+  .icon-button .tooltip {
+    display: none;
+  }
+
+  .user-menu .dropdown-content {
+    right: 50%;
+    transform: translateX(50%);
+    min-width: unset;
+    width: fit-content;
+  }
+}
+
+/* --- Dostosowania dla bardzo małych ekranów --- */
+@media (max-width: 480px) {
+  .header-inner {
+    padding: 0.5rem 0.5rem;
+  }
+
+  .header-logo-text {
+    font-size: 1rem;
+  }
+
+  .header-logo-icon {
+    font-size: 1.4rem;
+  }
+
+  .header-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding-bottom: 5px;
+  }
+  .header-nav > * {
+    flex-shrink: 0;
   }
 }
