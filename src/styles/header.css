@@ -182,7 +182,7 @@
 
   .header-nav {
     width: 100%;
-    justify-content: space-around;
+    justify-content: flex-end;
     gap: 0.3rem;
     flex-wrap: wrap;
   }
@@ -193,10 +193,21 @@
   }
 
   .user-menu .dropdown-content {
-    right: 50%;
-    transform: translateX(50%);
-    min-width: unset;
-    width: fit-content;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 80vh;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
+    padding: 1rem 0;
+    z-index: 1001;
+  }
+
+  .user-menu .dropdown-content a,
+  .user-menu .dropdown-content button {
+    text-align: center;
+    padding: 12px 1rem;
   }
 }
 
