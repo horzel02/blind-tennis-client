@@ -506,7 +506,7 @@ export default function TournamentRegistrationsAdmin() {
                       <td data-label="Status" className={
                         reg.status === 'pending' ? 'reg-admin-status-pending'
                           : reg.status === 'invited' ? 'reg-admin-status-invited'
-                            : reg.status === 'accepted' ? 'reg-admin-status-accepted'
+                            : reg.status === 'accepted' ? 'reg-admin-status-approved'
                               : 'reg-admin-status-rejected'
                       }>
                         {reg.status === 'pending'
@@ -535,18 +535,18 @@ export default function TournamentRegistrationsAdmin() {
                       </td>
 
                       {/* 7) Akcje: pojedyncze (accept/reject/cancel/restore) */}
-                      <td data-label="Akcje" style={{ textAlign: 'center' }}>
+                      <td data-label="Akcje" className="actions-cell"> {/* Dodano klasę actions-cell do komórki */}
                         {reg.status === 'pending' ? (
                           <>
                             <button
                               onClick={() => handleStatusChange(reg.id, 'accepted')}
-                              className="reg-action-btn reg-action-accept"
+                              className="btn-icon btn-approve" // Zmieniono z reg-action-btn reg-action-accept
                             >
                               Akceptuj
                             </button>
                             <button
                               onClick={() => handleStatusChange(reg.id, 'rejected')}
-                              className="reg-action-btn reg-action-reject"
+                              className="btn-icon btn-reject" // Zmieniono z reg-action-btn reg-action-reject
                             >
                               Odrzuć
                             </button>
@@ -559,7 +559,7 @@ export default function TournamentRegistrationsAdmin() {
                             </span>
                             <button
                               onClick={() => handleCancelInvite(reg.id)}
-                              className="reg-action-btn reg-action-cancel"
+                              className="btn-icon btn-delete" // Zmieniono na btn-delete, bo nie ma bezpośredniego "cancel" w nowym stylu
                             >
                               Anuluj zaproszenie
                             </button>
@@ -567,20 +567,21 @@ export default function TournamentRegistrationsAdmin() {
 
                         ) : reg.status === 'accepted' ? (
                           <>
-                            <span className="reg-action-status-indicator">✓ Zaakceptowane</span>
+                            {/* Tutaj możesz użyć klasy status-indicator, jeśli chcesz, ale dla jednolitości można zostawić tylko tekst */}
+                            <span className="reg-admin-status-approved">✓ Zaakceptowane</span> 
                             <button
                               onClick={() => handleStatusChange(reg.id, 'pending')}
-                              className="reg-action-btn reg-action-cancel"
+                              className="btn-icon btn-delete" // Zmieniono na btn-delete
                             >
                               Anuluj
                             </button>
                           </>
                         ) : (
                           <>
-                            <span className="reg-action-status-indicator">✕ Odrzucone</span>
+                            <span className="reg-admin-status-rejected">✕ Odrzucone</span>
                             <button
                               onClick={() => handleStatusChange(reg.id, 'pending')}
-                              className="reg-action-btn reg-action-restore"
+                              className="btn-icon btn-approve" // Zmieniono na btn-approve (jako "przywróć")
                             >
                               Przywróć
                             </button>

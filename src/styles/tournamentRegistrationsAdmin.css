@@ -41,10 +41,11 @@
 /* ─────────────────────────────────────────────────────────────── */
 .reg-admin-status-pending { color: orange; font-weight: 600; }
 .reg-admin-status-approved { color: green; font-weight: 600; }
-.reg-admin-status-rejected { color: red; font-weight: 600; }
+.reg-admin-status-rejected { color: var(--ct-red); font-weight: 600; }
+.reg-admin-status-invited { color: #165aa7; font-weight: 600; }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 3) Komórki akcji (przyciski)                                   */
+/* 3) Komórki akcji (przyciski)                                     */
 /* ─────────────────────────────────────────────────────────────── */
 .actions-cell {
   white-space: nowrap;
@@ -73,10 +74,48 @@
   background-color: #eee;
 }
 
-.btn-icon.btn-approve { color: var(--ct-green); }*/
-.btn-icon.btn-reject { color: var(--ct-accent); }
-.btn-icon.btn-delete { color: red; }
+.btn-icon.btn-approve { color: green }
+.btn-icon.btn-reject { color: var(--ct-red); }
+.btn-icon.btn-delete { color: var(--ct-red); }
 
+/* ─────────────────────────────────────────────────────────────── */
+/* 4.1) Rozszerzone style dla przycisków akcji w widoku desktopowym */
+/* ─────────────────────────────────────────────────────────────── */
+.actions-cell .btn-icon.btn-approve {
+  background-color: green;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+.actions-cell .btn-icon.btn-approve:hover {
+  background-color: #1b5e20;
+}
+
+.actions-cell .btn-icon.btn-reject {
+  background-color: var(--ct-red);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+.actions-cell .btn-icon.btn-reject:hover {
+  background-color: #c00000;
+}
+
+.actions-cell .btn-icon.btn-delete {
+  background-color: var(--ct-red);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+.actions-cell .btn-icon.btn-delete:hover {
+  background-color: #c00000;
+}
 
 /* ─────────────────────────────────────────────────────────────── */
 /* 5) Pasek akcji masowych (bulk-actions-bar)                      */
@@ -107,7 +146,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────── */
-/* 6) Paginacja (przenieś do globals.css, jeśli jest globalna)   */
+/* 6) Paginacja (przenieś do globals.css, jeśli jest globalna)      */
 /* ─────────────────────────────────────────────────────────────── */
 .pagination {
   margin-top: 1.5rem;
@@ -156,7 +195,7 @@
 /* ─────────────────────────────────────────────────────────────── */
 
 .registrations-cards-list {
-  display: none; 
+  display: none;
 }
 
 .table-responsive-wrapper {
@@ -167,6 +206,50 @@
   min-width: unset;
 }
 
+/* ─────────────────────────────────────────────────────────────── */
+/* 8.1) Style dla inputów i selectów w panelu filtrów  */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-admin-search {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.reg-admin-select {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.reg-admin-date {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 8.2) Podsumowanie (reg-summary)                                 */
+/* ─────────────────────────────────────────────────────────────── */
+.reg-summary {
+  background-color: #fdfdfd;
+  border-left: 4px solid var(--ct-primary);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* 8.3) Komunikaty błędów                                          */
+/* ─────────────────────────────────────────────────────────────── */
+.error {
+  color: #c62828;
+  margin: 1rem 0;
+  font-weight: 600;
+}
 
 @media (max-width: 767px) {
   .table-responsive-wrapper {
@@ -220,12 +303,10 @@
     color: var(--ct-darkest);
   }
 
-  /*.card-header .reg-admin-status-pending,
+  /* .card-header .reg-admin-status-pending,
   .card-header .reg-admin-status-approved,
   .card-header .reg-admin-status-rejected {
-     Upewnij się, że kolory statusów są widoczne na tle nagłówka 
-     Jeśli są zbyt jasne, możesz zmienić ich kolor lub dodać tło 
-  }*/
+  } */
 
   .card-details {
     padding: 1rem;
@@ -260,17 +341,18 @@
   .card-actions-mobile .btn-icon:hover {
     background-color: #f0f0f0;
   }
+
   /* Kolory dla przycisków akcji */
   .card-actions-mobile .btn-approve {
     color: var(--ct-green);
     border-color: var(--ct-green);
   }
   .card-actions-mobile .btn-reject {
-    color: var(--ct-accent);
-    border-color: var(--ct-accent);
+    color: var(--ct-red);
+    border-color: var(--ct-red);
   }
   .card-actions-mobile .btn-delete {
-    color: red;
-    border-color: red;
+    color: var(--ct-red);
+    border-color: var(--ct-red);
   }
 }
