@@ -6,7 +6,8 @@ export default function TournamentFilters({
   filters,
   setFilters,
   categories,
-  genders
+  genders,
+  isMobileOffCanvas
 }) {
   const handleCheckboxChange = (e) => {
     const { name, value, checked } = e.target;
@@ -30,7 +31,7 @@ export default function TournamentFilters({
   };
 
   return (
-    <aside className="filters" aria-label="Filtry turniejów">
+    <aside className={`filters-panel ${isMobileOffCanvas ? 'mobile-mode-filters' : ''}`} aria-label="Filtry turniejów">
       {/* Kategoria */}
       <fieldset className="filter-group">
         <legend>Kategoria</legend>
@@ -82,38 +83,38 @@ export default function TournamentFilters({
 
       {/* Zakres daty rozpoczęcia */}
       <fieldset className="filter-group">
-  <legend>Data od/do</legend>
+        <legend>Data od/do</legend>
 
-  <div className="date-range">
-    {/* Pole „Data od” */}
-    <div className="filter-item">
-      <label htmlFor="dateFrom">
-        <span className="date-label">Od:</span>
-        <input
-          type="date"
-          id="dateFrom"
-          name="dateFrom"
-          value={filters.dateFrom}
-          onChange={handleFieldChange}
-        />
-      </label>
-    </div>
+        <div className="date-range">
+          {/* Pole „Data od” */}
+          <div className="filter-item">
+            <label htmlFor="dateFrom">
+              <span className="date-label">Od:</span>
+              <input
+                type="date"
+                id="dateFrom"
+                name="dateFrom"
+                value={filters.dateFrom}
+                onChange={handleFieldChange}
+              />
+            </label>
+          </div>
 
-    {/* Data do */}
-    <div className="filter-item">
-      <label htmlFor="dateTo">
-        <span className="date-label">Do:</span>
-        <input
-          type="date"
-          id="dateTo"
-          name="dateTo"
-          value={filters.dateTo}
-          onChange={handleFieldChange}
-        />
-      </label>
-    </div>
-  </div>
-</fieldset>
+          {/* Data do */}
+          <div className="filter-item">
+            <label htmlFor="dateTo">
+              <span className="date-label">Do:</span>
+              <input
+                type="date"
+                id="dateTo"
+                name="dateTo"
+                value={filters.dateTo}
+                onChange={handleFieldChange}
+              />
+            </label>
+          </div>
+        </div>
+      </fieldset>
 
       {/* Status zgłoszeń */}
       <fieldset className="filter-group">

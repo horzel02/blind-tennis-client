@@ -298,3 +298,15 @@ select:focus-visible {
   margin: 0 0.5rem;
   color: var(--muted-color);
 }
+
+@media (max-width: 767px) {
+  body {
+    padding-top: 64px;
+  }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding-top: 120px;
+    }
+}

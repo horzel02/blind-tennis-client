@@ -39,8 +39,7 @@ export default function TournamentList({
     status: []
   });
 
-  // Nowy stan do kontroli widoczności modala filtrów
-  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // 3. Zakres wyników po filtrowaniu/sortowaniu
   const [filtered, setFiltered] = useState([]);
@@ -49,7 +48,7 @@ export default function TournamentList({
   const ITEMS_PER_PAGE = 8;
   const [page, setPage] = useState(1);
 
-  // 5. Fetch wszystkich turniejów przy mount (tylko gdy initialTournaments == null)
+  // 5. Fetch wszystkich turniejów przy mount
   useEffect(() => {
     if (initialTournaments !== null) {
       setLoading(false);
@@ -114,7 +113,6 @@ export default function TournamentList({
     if (filters.status.includes('closed') && !filters.status.includes('open')) {
       arr = arr.filter(t => t.applicationsOpen === false);
     }
-    // Jeżeli oba statusy lub żaden → pomijamy filtr
 
     // 6.7 Sortowanie
     arr.sort((a, b) => {
@@ -151,6 +149,20 @@ export default function TournamentList({
     { label: 'Turnieje' }
   ];
 
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSortOption('dateDesc');
+    setFilters({
+      category: [],
+      gender: [],
+      city: '',
+      dateFrom: '',
+      dateTo: '',
+      status: []
+    });
+    setShowMobileFilters(false);
+  };
+
   return (
     <div className="tournaments-page container">
 
@@ -179,10 +191,10 @@ export default function TournamentList({
           <option value="nameDesc">Nazwa (Z → A)</option>
         </select>
 
-        {/* Nowy przycisk "Filtruj" - widoczny tylko na mobile/tablet */}
+        {/* PRZYCISK "FILTRUJ" - WIDOCZNY TYLKO NA MOBILE */}
         <button
           className="btn-filter-toggle"
-          onClick={() => setShowFiltersModal(true)}
+          onClick={() => setShowMobileFilters(true)}
           aria-label="Otwórz filtry"
         >
           <i className="fas fa-filter"></i> Filtruj
@@ -191,18 +203,7 @@ export default function TournamentList({
         <button
           type="button"
           className="btn-clear"
-          onClick={() => {
-            setSearchQuery('');
-            setSortOption('dateDesc');
-            setFilters({
-              category: [],
-              gender: [],
-              city: '',
-              dateFrom: '',
-              dateTo: '',
-              status: []
-            });
-          }}
+          onClick={handleResetFilters}
           aria-label="Resetuj wszystkie filtry"
         >
           Resetuj filtry
@@ -221,14 +222,14 @@ export default function TournamentList({
 
       {/* 11) SIDEBAR + GRID KAFELEK */}
       <div className="content-with-filters">
-        {/* Sidebar filtrów - będzie ukryty/pokazany przez CSS na podstawie rozmiaru ekranu */}
-        <aside className="filters filters-panel"> {/* Dodano filters-panel dla spójności */}
-            <TournamentFilters
-                filters={filters}
-                setFilters={setFilters}
-                categories={['B1', 'B2', 'B3', 'B4']}
-                genders={['M', 'W', 'Coed']}
-            />
+        <aside className="filters filters-panel">
+          <TournamentFilters
+            filters={filters}
+            setFilters={setFilters}
+            categories={['B1', 'B2', 'B3', 'B4']}
+            genders={['M', 'W', 'Coed']}
+            isMobileOffCanvas={false}
+          />
         </aside>
 
         <div className="tournament-grid">
@@ -248,7 +249,7 @@ export default function TournamentList({
         </div>
       </div>
 
-      {/* 12) PAGINACJA */}
+      {/* 12) PAGINACJA - ZACHOWANA */}
       {filtered.length > 0 && totalPages > 1 && (
         <div className="pagination" aria-label="Paginacja turniejów">
           <button
@@ -285,44 +286,33 @@ export default function TournamentList({
         </div>
       )}
 
-      {/* 13) MODAL FILTRÓW - WIDOCZNY TYLKO NA MOBILE/TABLET PO KLIKNIĘCIU */}
-      {showFiltersModal && (
-        <div className="filters-modal-backdrop" onClick={() => setShowFiltersModal(false)}>
-          <div className="filters-modal-content" onClick={e => e.stopPropagation()}>
-            <button className="filters-modal-close-btn" onClick={() => setShowFiltersModal(false)}>
-              &times; {/* Ikona X */}
+      {/* 13) MODAL FILTRÓW - WIDOCZNY TYLKO NA MOBILE */}
+      {showMobileFilters && (
+        <div className="filters-modal-backdrop" onClick={() => setShowMobileFilters(false)}>
+          <div className="filters-modal-content mobile-off-canvas-panel" onClick={e => e.stopPropagation()}>
+            <button className="filters-modal-close-btn" onClick={() => setShowMobileFilters(false)}>
+              &times;
             </button>
             <h2>Filtry</h2>
-            <div className="filters-panel"> {/* Użyj klasy filters-panel dla spójności stylów */}
+            <div className="filters-panel">
               <TournamentFilters
                 filters={filters}
                 setFilters={setFilters}
                 categories={['B1', 'B2', 'B3', 'B4']}
                 genders={['M', 'W', 'Coed']}
+                isMobileOffCanvas={true}
               />
             </div>
-            {/* Opcjonalnie: przyciski "Zastosuj filtry", "Wyczyść" w modalu */}
             <div className="modal-actions">
               <button
                 className="btn-primary"
-                onClick={() => setShowFiltersModal(false)}
+                onClick={() => setShowMobileFilters(false)}
               >
                 Zastosuj filtry
               </button>
               <button
                 className="btn-secondary"
-                onClick={() => {
-                  setFilters({
-                    category: [],
-                    gender: [],
-                    city: '',
-                    dateFrom: '',
-                    dateTo: '',
-                    status: []
-                  });
-                  // Opcjonalnie zamknij modal po wyczyszczeniu
-                  // setShowFiltersModal(false);
-                }}
+                onClick={handleResetFilters}
               >
                 Wyczyść
               </button>
