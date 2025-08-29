@@ -1,5 +1,5 @@
 // client/src/services/registrationService.js
-const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
+const API_BASE_URL = 'http://localhost:5000';
 
 // Definicje bazowych ścieżek API
 const REGISTRATION_API = `${API_BASE_URL}/api/registrations`;

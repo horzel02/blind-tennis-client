@@ -1,6 +1,5 @@
 // client/src/services/tournamentService.js
-const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
-
+const API_BASE_URL = 'http://localhost:5000';
 const BASE = `${API_BASE_URL}/api/tournaments`;
 
 export async function getAllTournaments() {

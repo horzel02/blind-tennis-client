@@ -15,6 +15,8 @@ import MyRegistrationsPage from './pages/MyRegistrationsPage';
 import MyTournamentsPage from './pages/MyTournamentsPage';
 import PrivateRoute from './components/PrivateRoute';
 import RoleRoute from './components/RoleRoute';
+import MatchScorePanel from './components/MatchScorePanel';
+import TournamentMatches from './components/TournamentMatches';
 
 export default function App() {
   return (
@@ -38,7 +40,33 @@ export default function App() {
           {/* Publiczna lista turniejów */}
           <Route path="/tournaments" element={<TournamentListPage />} />
 
-          {/* Tylko zalogowani (tworzenie) */}
+          {/* Strona ze szczegółami, publiczna, ale wewnątrz mogą być warunki dostępu */}
+          <Route path="/tournaments/:id/details" element={<TournamentDetailsPage />} />
+
+          {/* Trasa do wyświetlania meczów turnieju */}
+          <Route path="/tournaments/:id/matches" element={<TournamentMatches />} />
+
+          {/* Nowa trasa do panelu sędziowskiego, chroniona przez PrivateRoute */}
+          <Route
+            path="/match-score-panel/:matchId"
+            element={
+              <PrivateRoute>
+                <MatchScorePanel />
+              </PrivateRoute>
+            }
+          />
+          {/* Starą trasę możesz usunąć lub zostawić zakomentowaną
+          <Route
+            path="/score-input/:matchId"
+            element={
+              <PrivateRoute>
+                <ScoreInputForm />
+              </PrivateRoute>
+            }
+          />
+          */}
+
+          {/* Trasy dla zalogowanych użytkowników (prywatne) */}
           <Route
             path="/tournaments/new"
             element={
@@ -57,10 +85,6 @@ export default function App() {
             }
           />
 
-          {/* Szczegóły – publiczne, ale wewnątrz mogą być warunki */}
-          <Route path="/tournaments/:id/details" element={<TournamentDetailsPage />} />
-
-          {/* „Moje turnieje” tylko dla zalogowanych */}
           <Route
             path="/tournaments/mine"
             element={
@@ -70,7 +94,6 @@ export default function App() {
             }
           />
 
-          {/* Panel zgłoszeń – tylko organizer */}
           <Route
             path="/tournaments/:id/manage/registrations"
             element={

@@ -12,7 +12,13 @@ import '../styles/tournamentDetails.css';
 import * as tournamentService from '../services/tournamentService';
 import * as registrationService from '../services/registrationService';
 import * as roleService from '../services/tournamentUserRoleService';
+import * as matchService from '../services/matchService';
 import Breadcrumbs from '../components/Breadcrumbs';
+import TournamentMatches from '../components/TournamentMatches';
+import AssignRefereeModal from '../components/AssignRefereeModal';
+
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 
 export default function TournamentDetailsPage() {
@@ -20,7 +26,6 @@ export default function TournamentDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // ─── Stan komponentu ─────────────────────────────────────────────────────────
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,8 +39,8 @@ export default function TournamentDetailsPage() {
   const [isPlayerModalOpen, setPlayerModalOpen] = useState(false);
   const [isRoleModalOpen, setRoleModalOpen] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [isRefereeModalOpen, setRefereeModalOpen] = useState(false);
 
-  // ─── Fetch tournament ───────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     tournamentService.getTournamentById(id)
@@ -44,7 +49,6 @@ export default function TournamentDetailsPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // ─── Self-registration ──────────────────────────────────────────────────────
   const fetchMyRegistration = useCallback(() => {
     if (!tournament || !user) {
       setCheckingReg(false);
@@ -65,7 +69,6 @@ export default function TournamentDetailsPage() {
       .finally(() => setCheckingReg(false));
   }, [tournament, user]);
 
-  // ─── Fetch accepted count ───────────────────────────────────────────────────
   const fetchAcceptedCount = useCallback(() => {
     if (!tournament) return;
     registrationService.getAcceptedCount(tournament.id)
@@ -73,7 +76,6 @@ export default function TournamentDetailsPage() {
       .catch(console.error);
   }, [tournament]);
 
-  // ─── Po załadowaniu turnieju ────────────────────────────────────────────────
   useEffect(() => {
     if (!tournament) return;
     fetchMyRegistration();
@@ -84,12 +86,10 @@ export default function TournamentDetailsPage() {
       .catch(() => setRoles([]));
   }, [tournament, fetchMyRegistration, fetchAcceptedCount]);
 
-  // ─── Wczesne returny ─────────────────────────────────────────────────────────
   if (loading) return <p>Ładowanie…</p>;
   if (error) return <p className="error">Błąd: {error}</p>;
   if (!tournament) return <p>Turniej nie znaleziono.</p>;
 
-  // ─── Destrukturyzacja danych i wyliczenia ──────────────────────────────────
   const {
     name,
     description,
@@ -115,8 +115,6 @@ export default function TournamentDetailsPage() {
   );
   const address = `${street}, ${postalCode} ${city}, ${country}`;
 
-  // ─── Handlery ────────────────────────────────────────────────────────────────
-  // Self‐registration
   const handleRegister = async () => {
     if (!isLoggedIn) return navigate('/login');
     try {
@@ -124,58 +122,55 @@ export default function TournamentDetailsPage() {
       setRegistrationStatus(reg.status);
       setRegistrationId(reg.id);
       fetchAcceptedCount();
-      alert('Zgłoszenie wysłane!');
+      toast.success('Zgłoszenie wysłane!');
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
   const handleUnregister = async () => {
-    if (!confirm('Wycofać zgłoszenie?')) return;
+    if (!window.confirm('Wycofać zgłoszenie?')) return;
     try {
       await registrationService.deleteRegistration(registrationId);
       setRegistrationStatus(null);
       setRegistrationId(null);
       fetchAcceptedCount();
-      alert('Zgłoszenie wycofane');
+      toast.success('Zgłoszenie wycofane');
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
-  // Invite zawodnika
   const handleAddPlayer = async (u) => {
     try {
       await tournamentService.addParticipant(tournament.id, u.id);
       fetchAcceptedCount();
-      alert(`${u.name} zaproszony!`);
+      toast.success(`${u.name} zaproszony!`);
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
-  // Invite organizatora
   const handleAddOrganizer = async (u) => {
     try {
       await roleService.addRole(tournament.id, u.id, 'organizer');
       setRoles(await roleService.listRoles(tournament.id));
-      alert(`${u.name} dodany jako organizator`);
+      toast.success(`${u.name} dodany jako organizator`);
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
   const handleRemoveOrganizer = async (roleRecordId) => {
-    if (!confirm('Usunąć organizatora?')) return;
+    if (!window.confirm('Usunąć organizatora?')) return;
     try {
       await roleService.removeRole(tournament.id, roleRecordId);
       setRoles(await roleService.listRoles(tournament.id));
-      alert('Usunięto organizatora');
+      toast.success('Usunięto organizatora');
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
-  // Akceptacja/odrzucenie zaproszenia
   const handleAcceptInvite = async () => {
     try {
       const upd = await registrationService.updateRegistrationStatus(
@@ -183,28 +178,27 @@ export default function TournamentDetailsPage() {
       );
       setRegistrationStatus(upd.status);
       fetchAcceptedCount();
-      alert('Zaproszenie przyjęte!');
+      toast.success('Zaproszenie przyjęte!');
     } catch (err) {
-      alert('Błąd przy akceptacji: ' + err.message);
+      toast.error('Błąd przy akceptacji: ' + err.message);
     }
   };
   const handleDeclineInvite = async () => {
-    if (!confirm('Odrzucić zaproszenie?')) return;
+    if (!window.confirm('Odrzucić zaproszenie?')) return;
     try {
       await registrationService.deleteRegistration(registrationId);
       setRegistrationStatus(null);
       setRegistrationId(null);
       fetchAcceptedCount();
-      alert('Zaproszenie odrzucone');
+      toast.success('Zaproszenie odrzucone');
     } catch (err) {
-      alert('Błąd przy odrzuceniu: ' + err.message);
+      toast.error('Błąd przy odrzuceniu: ' + err.message);
     }
   };
 
-  // Share / Export JSON / Delete turniej
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
-    alert('Link skopiowany');
+    toast.success('Link skopiowany!');
   };
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(tournament, null, 2)], {
@@ -220,24 +214,34 @@ export default function TournamentDetailsPage() {
     URL.revokeObjectURL(url);
   };
   const handleDelete = async () => {
-    if (!confirm('Na pewno usunąć turniej?')) return;
+    if (!window.confirm('Na pewno usunąć turniej?')) return;
     try {
       await tournamentService.deleteTournament(tournament.id);
       navigate('/tournaments');
     } catch (err) {
-      alert('Błąd przy usuwaniu: ' + err.message);
+      toast.error('Błąd przy usuwaniu: ' + err.message);
     }
   };
 
-  // Lista organizerów z tabeli:
+  const handleGenerateMatches = async () => {
+    if (!window.confirm('Czy na pewno chcesz wygenerować mecze turnieju? Spowoduje to usunięcie wszystkich istniejących meczów!')) {
+      return;
+    }
+    try {
+      await matchService.generateTournamentStructure(id);
+      toast.success('Mecze wygenerowane pomyślnie!');
+      window.location.reload(); 
+    } catch (err) {
+      toast.error(err.message || 'Wystąpił błąd podczas generowania meczów.');
+    }
+  };
+
   const organizerIds = new Set(
     roles.filter(r => r.role === 'organizer').map(r => r.user.id)
   );
 
-  // Funkcja do renderowania chipa 
   const renderChip = (text) => <span className="chip">{text}</span>;
 
-  // Funkcja do renderowania paska postępu 
   const renderProgressBar = (current, total) => {
     const pct = total ? Math.round((current / total) * 100) : 0;
     return (
@@ -248,16 +252,14 @@ export default function TournamentDetailsPage() {
     );
   };
 
-  // Funkcja do renderowania podglądu mapy 
   function MapPreview({ address }) {
-    const src = `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+    const src = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
     return (
       <div className="map-preview">
         <iframe title="Mapa" src={src} frameBorder="0" allowFullScreen />
       </div>
     );
   }
-
 
   return (
     <section className="tournament-details container" role="main">
@@ -305,7 +307,6 @@ export default function TournamentDetailsPage() {
         </div>
       </div>
 
-      {/* ───── Publiczne akcje ───────────────────────────────────────────── */}
       <div className="public-actions">
         {!isLoggedIn && (
           <p>Musisz się <a href="/login">zalogować</a>.</p>
@@ -353,11 +354,9 @@ export default function TournamentDetailsPage() {
         )}
       </div>
 
-      {/* ───── Sekcja organizatora ─────────────────────────────────────────── */}
       {(isCreator || isTournyOrg) && (
         <div className="organizer-section">
 
-          {/* —————— LEWY PANEL: lista organizatorów + dodaj —————— */}
           <div className="organizer-list">
             <div className="organizer-list-header">
               <h2>Organizatorzy</h2>
@@ -387,7 +386,6 @@ export default function TournamentDetailsPage() {
             </ul>
           </div>
 
-          {/* —————— PRAWY PANEL: toolbar akcji organizatora —————— */}
           <div className="organizer-actions">
             <h2>Opcje organizatora:</h2>
             <div className="actions-toolbar">
@@ -412,12 +410,24 @@ export default function TournamentDetailsPage() {
               >
                 Zarządzaj zgłoszeniami
               </button>
+              <button
+                className="btn-primary"
+                onClick={handleGenerateMatches}
+              >
+                Generuj mecze
+              </button>
+
+              <button
+                className="btn-primary"
+                onClick={() => setRefereeModalOpen(true)}
+              >
+                Przydziel sędziego
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ───── Uniwersalny modal ───────────────────────────────────────────── */}
       <InvitePlayerModal
         isOpen={isPlayerModalOpen}
         onClose={() => setPlayerModalOpen(false)}
@@ -435,7 +445,12 @@ export default function TournamentDetailsPage() {
         onSelectUser={handleAddOrganizer}
       />
 
-      {/* ───── Share / Export ───────────────────────────────────────────────── */}
+      <AssignRefereeModal
+        isOpen={isRefereeModalOpen}
+        onClose={() => setRefereeModalOpen(false)}
+        tournamentId={tournament.id}
+      />
+
       <div className="details-actions sticky">
         <button className="btn-secondary" onClick={handleShare}>
           <Share2 size={16} /> Udostępnij
@@ -444,6 +459,8 @@ export default function TournamentDetailsPage() {
           <Download size={16} /> Eksport JSON
         </button>
       </div>
+
+      <TournamentMatches roles={roles} />
     </section>
   );
 }

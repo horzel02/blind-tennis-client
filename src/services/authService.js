@@ -1,5 +1,5 @@
 // client/src/services/authService.js
-const API_BASE_URL = 'https://blind-tennis-server.onrender.com';
+const API_BASE_URL = 'http://localhost:5000';
 const AUTH_API = `${API_BASE_URL}/api/auth`;
 
 export async function register(data) {
