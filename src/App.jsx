@@ -17,6 +17,7 @@ import PrivateRoute from './components/PrivateRoute';
 import RoleRoute from './components/RoleRoute';
 import MatchScorePanel from './components/MatchScorePanel';
 import TournamentMatches from './components/TournamentMatches';
+import TournamentBracket from './components/TournamentBracket';
 
 export default function App() {
   return (
@@ -45,6 +46,9 @@ export default function App() {
 
           {/* Trasa do wyświetlania meczów turnieju */}
           <Route path="/tournaments/:id/matches" element={<TournamentMatches />} />
+
+          {/* Trasa do wyświetlania drabinki turnieju */}
+          <Route path="/tournaments/:id/bracket" element={<TournamentBracket />} />
 
           {/* Nowa trasa do panelu sędziowskiego, chroniona przez PrivateRoute */}
           <Route

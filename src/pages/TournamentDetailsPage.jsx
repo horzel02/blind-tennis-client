@@ -16,6 +16,8 @@ import * as matchService from '../services/matchService';
 import Breadcrumbs from '../components/Breadcrumbs';
 import TournamentMatches from '../components/TournamentMatches';
 import AssignRefereeModal from '../components/AssignRefereeModal';
+import GroupStandings from '../components/GroupStandings';
+
 
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -450,6 +452,9 @@ export default function TournamentDetailsPage() {
         onClose={() => setRefereeModalOpen(false)}
         tournamentId={tournament.id}
       />
+      
+      <GroupStandings tournamentId={tournament.id} isOrganizer={isCreator || isTournyOrg} />
+
 
       <div className="details-actions sticky">
         <button className="btn-secondary" onClick={handleShare}>

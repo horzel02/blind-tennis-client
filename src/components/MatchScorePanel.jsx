@@ -162,7 +162,7 @@ export default function MatchScorePanel() {
             await updateMatchScore(matchId, updateData);
             setMessage('Wynik został pomyślnie zaktualizowany!');
             // wróć na stronę turnieju (jak chciałeś)
-            navigate(`/tournaments/${match.tournamentId}`, { replace: true });
+            navigate(`/tournaments/${match.tournamentId}/details`, { replace: true });
         } catch (err) {
             setError(err.message || 'Błąd podczas aktualizacji wyniku.');
         }

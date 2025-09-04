@@ -1,39 +1,62 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import { toast } from 'react-toastify';
+import { useAuth } from '../contexts/AuthContext';
+
 import * as matchService from '../services/matchService';
 import * as roleService from '../services/tournamentUserRoleService';
-import '../styles/tournamentMatches.css';
-import { io } from 'socket.io-client';
-import { useAuth } from '../contexts/AuthContext';
-import { toast } from 'react-toastify';
 import { searchUsers } from '../services/userService';
+
+import '../styles/tournamentMatches.css';
+
+/* ============================================================================
+ *  KONFIG
+ * ========================================================================== */
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const TABS = {
   scheduled: 'Zaplanowane',
   in_progress: 'W trakcie',
-  finished: 'Zakończone'
+  finished: 'Zakończone',
 };
 
+// wykrywanie rund KO (obsługuje „1/8 finału – Mecz X”, „Ćwierćfinał – …”, itp.)
+const isKO = (round = '') =>
+  /(1\/(8|16|32|64)\s*finału|ćwierćfinał|półfinał|finał)/i.test(round);
+
+/** Porządkowanie nagłówków rund do listy (grupy → wczesne KO → finał) */
+const ROUND_ORDER = [
+  'Grupa',
+  '1/64 finału',
+  '1/32 finału',
+  '1/16 finału',
+  '1/8 finału',
+  'Ćwierćfinał',
+  'Półfinał',
+  'Finał',
+];
+
+/* ============================================================================
+ *  KOMPONENT
+ * ========================================================================== */
+
 export default function TournamentMatches({ roles: rolesProp }) {
-  const { id } = useParams();               // tournamentId
+  const { id: tournamentId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [matches, setMatches] = useState([]);
-  const [groupedMatches, setGroupedMatches] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('scheduled');
-
-  // role z parenta lub dociągnięte lokalnie
+  /* --------------------------------
+   *  ROLE
+   * ------------------------------ */
   const [roles, setRoles] = useState(rolesProp || []);
   useEffect(() => { setRoles(rolesProp || []); }, [rolesProp]);
+
   useEffect(() => {
     if (rolesProp) return;
-    roleService.listRoles(id).then(setRoles).catch(() => setRoles([]));
-  }, [id, rolesProp]);
+    roleService.listRoles(tournamentId).then(setRoles).catch(() => setRoles([]));
+  }, [tournamentId, rolesProp]);
 
   const isTournyOrg = useMemo(
     () => roles.some(r => r.role === 'organizer' && r.user.id === user?.id),
@@ -43,68 +66,51 @@ export default function TournamentMatches({ roles: rolesProp }) {
     () => roles.some(r => r.role === 'referee' && r.user.id === user?.id),
     [roles, user]
   );
-
-  // „Wprowadź wynik” tylko dla sędziego przypisanego do meczu, który ma rolę referee w turnieju
   const canScore = (match) => !!user && isTournyReferee && match?.referee?.id === user?.id;
 
+  /* --------------------------------
+   *  DANE / STAN
+   * ------------------------------ */
+  const [activeTab, setActiveTab] = useState('scheduled');
+  const [matches, setMatches] = useState([]);
+  const [groupedMatches, setGroupedMatches] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // wybory listy
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  // KO seeding – opcje
+  const [overwrite, setOverwrite] = useState(false);
+  const [avoidSameGroup, setAvoidSameGroup] = useState(true);
+  const [resetFrom, setResetFrom] = useState('1/8');
+
+  /* --------------------------------
+   *  SOCKET
+   * ------------------------------ */
   const socketRef = useRef(null);
   const joinedRoomsRef = useRef(new Set());
 
-  // multi-select
-  const [selectedIds, setSelectedIds] = useState(new Set());
-
-  // combobox (globalne wyszukiwanie sędziów)
-  const [bulkRefereeId, setBulkRefereeId] = useState('');
-  const [selectedRef, setSelectedRef] = useState(null); // obiekt usera wybranego z wyszukiwarki
-  const [refSearch, setRefSearch] = useState('');
-  const [refOpen, setRefOpen] = useState(false);
-  const [refResults, setRefResults] = useState([]);
-  const [refLoading, setRefLoading] = useState(false);
-  const comboRef = useRef(null);
-
-  // debounce wyszukiwania
-  useEffect(() => {
-    const q = refSearch.trim();
-    if (!q) { setRefResults([]); return; }
-    const t = setTimeout(async () => {
-      try {
-        setRefLoading(true);
-        const users = await searchUsers(q);     // szuka po wszystkich userach
-        setRefResults(users);
-      } catch {
-        setRefResults([]);
-      } finally {
-        setRefLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [refSearch]);
-
-  // zamykanie listy po kliknięciu poza
-  useEffect(() => {
-    const onClickAway = (e) => {
-      if (comboRef.current && !comboRef.current.contains(e.target)) setRefOpen(false);
-    };
-    document.addEventListener('mousedown', onClickAway);
-    return () => document.removeEventListener('mousedown', onClickAway);
-  }, []);
-
-  const groupMatchesByRound = (list) =>
-    list.reduce((acc, match) => {
-      const round = match.round;
+  /* --------------------------------
+   *  POMOCNICZE
+   * ------------------------------ */
+  const groupMatchesByRound = useCallback((list) => {
+    return list.reduce((acc, match) => {
+      const round = match.round || '—';
       if (!acc[round]) acc[round] = [];
       acc[round].push(match);
       return acc;
     }, {});
+  }, []);
 
-  const fetchForTab = async () => {
+  const fetchForTab = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await matchService.getMatchesByTournamentId(id, activeTab);
+      const data = await matchService.getMatchesByTournamentId(tournamentId, activeTab);
       setMatches(data);
       setGroupedMatches(groupMatchesByRound(data));
       setError(null);
-      // usuń zaznaczenia meczów, których już nie ma
+      // wyczyść zaznaczenia niewidocznych
       setSelectedIds(prev => new Set([...prev].filter(mid => data.some(m => m.id === mid))));
     } catch (err) {
       setError(err.message || 'Błąd podczas ładowania meczów. Sprawdź, czy jesteś zalogowany.');
@@ -114,40 +120,49 @@ export default function TournamentMatches({ roles: rolesProp }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tournamentId, activeTab, groupMatchesByRound]);
 
-  useEffect(() => {
-    fetchForTab();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, activeTab]);
+  useEffect(() => { fetchForTab(); }, [fetchForTab]);
 
-  // socket
+  /* ============================================================================
+   *  SOCKET LIFECYCLE + HANDLERY
+   * ========================================================================== */
+
+  // stabilny handler invalidacji — refetch po seed/reset
+  const onInvalidate = useCallback(() => {
+    setTimeout(() => { fetchForTab(); }, 50);
+  }, [fetchForTab]);
+
   useEffect(() => {
     const s = io(API_URL, { withCredentials: true });
     socketRef.current = s;
 
-    s.emit('join-tournament', parseInt(id, 10));
+    const tid = parseInt(tournamentId, 10);
+    s.emit('join-tournament', tid);
 
-    s.on('match-status-changed', async ({ matchId, status }) => {
+    const onStatusChanged = ({ matchId, status }) => {
       if (status !== activeTab) {
+        // wypadł z zakładki
         setMatches(prev => prev.filter(m => m.id !== matchId));
         setSelectedIds(prev => {
           if (!prev.has(matchId)) return prev;
-          const next = new Set(prev); next.delete(matchId); return next;
+          const next = new Set(prev);
+          next.delete(matchId);
+          return next;
         });
         return;
       }
-      try {
-        const m = await matchService.getMatchById(matchId);
+      // należy do aktywnej — dociągnij pełny stan meczu
+      matchService.getMatchById(matchId).then(m => {
         setMatches(prev => {
           const idx = prev.findIndex(x => x.id === matchId);
           if (idx !== -1) { const copy = [...prev]; copy[idx] = m; return copy; }
           return [...prev, m];
         });
-      } catch { }
-    });
+      }).catch(() => { });
+    };
 
-    s.on('match-updated', (updatedMatch) => {
+    const onMatchUpdated = (updatedMatch) => {
       setMatches(prev => {
         if (updatedMatch.status !== activeTab) {
           return prev.filter(m => m.id !== updatedMatch.id);
@@ -156,9 +171,9 @@ export default function TournamentMatches({ roles: rolesProp }) {
         if (idx !== -1) { const copy = [...prev]; copy[idx] = updatedMatch; return copy; }
         return [...prev, updatedMatch];
       });
-    });
+    };
 
-    s.on('real-time-score-update', ({ matchId, sets }) => {
+    const onLive = ({ matchId, sets }) => {
       setMatches(prev =>
         prev.map(m =>
           m.id === matchId
@@ -166,27 +181,38 @@ export default function TournamentMatches({ roles: rolesProp }) {
             : m
         )
       );
-    });
+    };
 
-    s.on('match-referee-changed', ({ matchId, referee }) => {
-      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, referee } : m));
-    });
+    const onRefereeChanged = ({ matchId, referee }) => {
+      setMatches(prev => prev.map(m => (m.id === matchId ? { ...m, referee } : m)));
+    };
+
+    // rejestracja
+    s.on('match-status-changed', onStatusChanged);
+    s.on('match-updated', onMatchUpdated);
+    s.on('real-time-score-update', onLive);
+    s.on('match-referee-changed', onRefereeChanged);
+    s.on('matches-invalidate', onInvalidate);
 
     return () => {
-      if (s) {
-        s.emit('leave-tournament', parseInt(id, 10));
-        for (const mid of joinedRoomsRef.current) s.emit('leave-match', mid);
-        joinedRoomsRef.current.clear();
-        s.disconnect();
-      }
-    };
-  }, [id, activeTab]);
+      s.emit('leave-tournament', tid);
+      for (const mid of joinedRoomsRef.current) s.emit('leave-match', mid);
+      joinedRoomsRef.current.clear();
 
-  // dopinanie do pokojów meczów
+      s.off('match-status-changed', onStatusChanged);
+      s.off('match-updated', onMatchUpdated);
+      s.off('real-time-score-update', onLive);
+      s.off('match-referee-changed', onRefereeChanged);
+      s.off('matches-invalidate', onInvalidate);
+
+      s.disconnect();
+    };
+  }, [tournamentId, activeTab, onInvalidate]);
+
+  // utrzymanie pokoi match-*
   useEffect(() => {
     const s = socketRef.current;
     if (!s) return;
-
     const currentIds = new Set(matches.map(m => m.id));
     const joined = joinedRoomsRef.current;
 
@@ -198,30 +224,55 @@ export default function TournamentMatches({ roles: rolesProp }) {
     }
   }, [matches]);
 
+  // utrzymaj groupera spójnego
   useEffect(() => {
     setGroupedMatches(groupMatchesByRound(matches));
-  }, [matches]);
+  }, [matches, groupMatchesByRound]);
 
-  const toggleSelect = (matchId) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(matchId)) next.delete(matchId); else next.add(matchId);
-      return next;
-    });
-  };
+  /* ============================================================================
+   *  BULK: SĘDZIA
+   * ========================================================================== */
 
-  const selectAllVisible = () => {
-    const visibleIds = matches.filter(m => m.status !== 'finished').map(m => m.id);
-    setSelectedIds(new Set(visibleIds));
-  };
-  const clearSelection = () => setSelectedIds(new Set());
+  const [bulkRefereeId, setBulkRefereeId] = useState('');
+  const [selectedRef, setSelectedRef] = useState(null);
+  const [refSearch, setRefSearch] = useState('');
+  const [refOpen, setRefOpen] = useState(false);
+  const [refResults, setRefResults] = useState([]);
+  const [refLoading, setRefLoading] = useState(false);
+  const comboRef = useRef(null);
 
-  // upewnij się, że user ma rolę 'referee' w tym turnieju
+  // dropdown close
+  useEffect(() => {
+    const onClickAway = (e) => {
+      if (comboRef.current && !comboRef.current.contains(e.target)) setRefOpen(false);
+    };
+    document.addEventListener('mousedown', onClickAway);
+    return () => document.removeEventListener('mousedown', onClickAway);
+  }, []);
+
+  // debounce search
+  useEffect(() => {
+    const q = refSearch.trim();
+    if (!q) { setRefResults([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        setRefLoading(true);
+        const users = await searchUsers(q);
+        setRefResults(users);
+      } catch {
+        setRefResults([]);
+      } finally {
+        setRefLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [refSearch]);
+
   const ensureRefereeRole = async (userId) => {
     const hasRole = roles.some(r => r.role === 'referee' && r.user.id === userId);
     if (!hasRole) {
-      await roleService.addRole(id, userId, 'referee');
-      const fresh = await roleService.listRoles(id);
+      await roleService.addRole(tournamentId, userId, 'referee');
+      const fresh = await roleService.listRoles(tournamentId);
       setRoles(fresh);
     }
   };
@@ -238,11 +289,24 @@ export default function TournamentMatches({ roles: rolesProp }) {
     }
   };
 
+  const toggleSelect = (matchId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(matchId)) next.delete(matchId); else next.add(matchId);
+      return next;
+    });
+  };
+  const selectAllVisible = () => {
+    const visibleIds = matches.filter(m => m.status !== 'finished').map(m => m.id);
+    setSelectedIds(new Set(visibleIds));
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
   const handleBulkAssign = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length || !bulkRefereeId) return;
 
-    // ochrona po stronie klienta: wykryj konflikty (sędzia jest graczem)
+    // sędzia nie może sędziować własnego meczu
     let conflicts = [];
     if (selectedRef) {
       const sid = selectedRef.id;
@@ -259,11 +323,11 @@ export default function TournamentMatches({ roles: rolesProp }) {
     }
 
     try {
-      const result = await matchService.setMatchRefereeBulk(id, allowedIds, Number(bulkRefereeId));
+      const result = await matchService.setMatchRefereeBulk(tournamentId, allowedIds, Number(bulkRefereeId));
       const refUser = selectedRef || null;
 
       setMatches(prev =>
-        prev.map(m => allowedIds.includes(m.id) ? { ...m, referee: refUser } : m)
+        prev.map(m => (allowedIds.includes(m.id) ? { ...m, referee: refUser } : m))
       );
 
       const skippedCount = (result?.skipped?.length ?? conflicts.length);
@@ -279,6 +343,161 @@ export default function TournamentMatches({ roles: rolesProp }) {
     }
   };
 
+  /* ============================================================================
+   *  SEEDING KO (schemat/losowo) + RESET KO
+   * ========================================================================== */
+
+  const handleSeedPreset = async () => {
+    try {
+      await matchService.seedKnockout(tournamentId, {
+        mode: 'preset',
+        overwrite,
+        skipLocked: true,
+      });
+      toast.success('Zasiano wg schematu');
+      fetchForTab();
+    } catch (e) {
+      toast.error(e.message || 'Błąd zasiewania (schemat)');
+    }
+  };
+
+  const handleSeedRandom = async () => {
+    try {
+      await matchService.seedKnockout(tournamentId, {
+        mode: 'random',
+        overwrite,
+        skipLocked: true,
+        avoidSameGroup,
+        randomSeed: Date.now(),
+      });
+      toast.success('Zasiano losowo');
+      fetchForTab();
+    } catch (e) {
+      toast.error(e.message || 'Błąd zasiewania (losowo)');
+    }
+  };
+
+  const handleResetKO = async () => {
+    try {
+      await matchService.resetFromStage(tournamentId, resetFrom);
+      toast.success(`Wyczyszczono KO od ${resetFrom}`);
+      fetchForTab();
+    } catch (e) {
+      toast.error(e.message || 'Błąd resetu KO');
+    }
+  };
+
+  /* ============================================================================
+   *  PAROWANIE KO (modal)
+   * ========================================================================== */
+
+  const [pairingOpen, setPairingOpen] = useState(false);
+  const [pairingMatch, setPairingMatch] = useState(null);
+  const [eligible, setEligible] = useState([]);
+
+  const [p1User, setP1User] = useState(null);
+  const [p2User, setP2User] = useState(null);
+  const [p1Query, setP1Query] = useState('');
+  const [p2Query, setP2Query] = useState('');
+  const [p1Open, setP1Open] = useState(false);
+  const [p2Open, setP2Open] = useState(false);
+  const p1ComboRef = useRef(null);
+  const p2ComboRef = useRef(null);
+
+  // zamykanie list w modalu po kliknięciu poza
+  useEffect(() => {
+    const onDown = (e) => {
+      if (p1ComboRef.current?.contains(e.target)) return;
+      if (p2ComboRef.current?.contains(e.target)) return;
+      setP1Open(false);
+      setP2Open(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  // blokuj scroll body, gdy modal otwarty
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = pairingOpen ? 'hidden' : prev || '';
+    return () => { document.body.style.overflow = prev; };
+  }, [pairingOpen]);
+
+  const filterEligible = (q, excludeId) => {
+    const s = (q || '').trim().toLowerCase();
+    return eligible
+      .filter(u => u.id !== excludeId)
+      .filter(u => !s || (`${u.name} ${u.surname} ${u.email || ''}`.toLowerCase().includes(s)));
+  };
+
+  const openPairingModal = async (match) => {
+    setPairingMatch(match);
+    setPairingOpen(true);
+    try {
+      const list = await matchService.getEligiblePlayersForMatch(match.id);
+      setEligible(list);
+    } catch {
+      setEligible([]);
+    }
+    // prefill aktualną parą (jeśli jest)
+    setP1User(match.player1 || null);
+    setP2User(match.player2 || null);
+    setP1Query(match.player1 ? `${match.player1.name} ${match.player1.surname}` : '');
+    setP2Query(match.player2 ? `${match.player2.name} ${match.player2.surname}` : '');
+    setP1Open(false);
+    setP2Open(false);
+  };
+
+  const closePairingModal = () => {
+    setPairingOpen(false);
+    setPairingMatch(null);
+    setEligible([]);
+    setP1User(null); setP2User(null);
+    setP1Query(''); setP2Query('');
+    setP1Open(false); setP2Open(false);
+  };
+
+  const swapSides = () => {
+    const u1 = p1User; const u2 = p2User;
+    const q1 = p1Query; const q2 = p2Query;
+    setP1User(u2); setP2User(u1);
+    setP1Query(q2); setP2Query(q1);
+  };
+
+  const savePairing = async () => {
+    if (p1User && p2User && p1User.id === p2User.id) {
+      toast.error('Ten sam zawodnik po obu stronach');
+      return;
+    }
+    if (!pairingMatch) return;
+
+    try {
+      const updated = await matchService.setPairing(pairingMatch.id, {
+        player1Id: p1User?.id ?? null,
+        player2Id: p2User?.id ?? null,
+      });
+      setMatches(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      toast.success('Pary zaktualizowane');
+      closePairingModal();
+    } catch (e) {
+      toast.error(e.message || 'Błąd ustawiania pary');
+    }
+  };
+
+  const toggleLock = async (match) => {
+    try {
+      const upd = await matchService.setLocked(match.id, !match.locked);
+      setMatches(prev => prev.map(m => (m.id === match.id ? upd : m)));
+      toast.success(upd.locked ? 'Mecz zablokowany' : 'Mecz odblokowany');
+    } catch (e) {
+      toast.error(e.message || 'Błąd blokowania meczu');
+    }
+  };
+
+  /* ============================================================================
+   *  RENDER
+   * ========================================================================== */
+
   const renderMatch = (match) => {
     const selectable = isTournyOrg && match.status !== 'finished';
     const checked = selectedIds.has(match.id);
@@ -288,8 +507,11 @@ export default function TournamentMatches({ roles: rolesProp }) {
         <div className="match-info">
           <span className="match-round">{match.round}</span>
           <span className="match-category">
-            {match.category ? `${match.category.gender === 'male' ? 'Mężczyźni' : 'Kobiety'} ${match.category.categoryName}` : 'Brak kategorii'}
+            {match.category
+              ? `${match.category.gender === 'male' ? 'Mężczyźni' : 'Kobiety'} ${match.category.categoryName}`
+              : 'Brak kategorii'}
           </span>
+
           {selectable && (
             <label className="select-checkbox">
               <input
@@ -326,13 +548,13 @@ export default function TournamentMatches({ roles: rolesProp }) {
             : (match.status === 'finished' ? 'Zakończony' : null)}
         </div>
 
-        <div className="match-score">
-          {match.matchSets && match.matchSets.length > 0 && (
+        {match.matchSets?.length > 0 && (
+          <div className="match-score">
             <div className="match-score-sets">
               Wynik: {match.matchSets.map(set => `${set.player1Score}-${set.player2Score}`).join(', ')}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {(match.status === 'scheduled' || match.status === 'in_progress') && canScore(match) && (
           <button
@@ -342,41 +564,54 @@ export default function TournamentMatches({ roles: rolesProp }) {
             Wprowadź wynik
           </button>
         )}
+
+        {/* Narzędzia KO: tylko organizator */}
+        {isTournyOrg && isKO(match.round) && match.status === 'scheduled' && !match.locked && (
+          <div className="ko-tools">
+            <button className="btn-secondary" onClick={() => openPairingModal(match)}>Ustaw parę</button>
+          </div>
+        )}
+        {isTournyOrg && isKO(match.round) && match.status !== 'finished' && (
+          <div className="ko-tools">
+            <button className="btn-secondary" onClick={() => toggleLock(match)}>
+              {match.locked ? 'Odblokuj' : 'Zablokuj'}
+            </button>
+          </div>
+        )}
       </div>
     );
   };
 
-  const roundOrder = ['Grupa', 'Ćwierćfinał', 'Półfinał', 'Finał'];
-  const sortedRounds = Object.keys(groupedMatches).sort((a, b) => {
-    const typeA = roundOrder.find(type => a.startsWith(type));
-    const typeB = roundOrder.find(type => b.startsWith(type));
-    const indexA = roundOrder.indexOf(typeA);
-    const indexB = roundOrder.indexOf(typeB);
-    if (indexA === indexB) return a.localeCompare(b);
-    return indexA - indexB;
-  });
+  const sortedRounds = useMemo(() => {
+    const keys = Object.keys(groupedMatches);
+    return keys.sort((a, b) => {
+      const typeA = ROUND_ORDER.find(type => a.startsWith(type));
+      const typeB = ROUND_ORDER.find(type => b.startsWith(type));
+      const indexA = typeA ? ROUND_ORDER.indexOf(typeA) : 999;
+      const indexB = typeB ? ROUND_ORDER.indexOf(typeB) : 999;
+      if (indexA === indexB) return a.localeCompare(b);
+      return indexA - indexB;
+    });
+  }, [groupedMatches]);
+
+  /* ============================================================================
+   *  JSX
+   * ========================================================================== */
 
   return (
     <section className="matches-section">
-      <div className="matches-header">
-        <h2 className="section-title">Mecze turnieju</h2>
-        <div className="tabs-container">
-          {Object.keys(TABS).map(tab => (
-            <button
-              key={tab}
-              className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {TABS[tab]}
-            </button>
-          ))}
+      <header className="matches-header">
+        <div className="matches-header-top">
+          <h2 className="section-title">Mecze turnieju</h2>
         </div>
 
         {/* Panel akcji zbiorczych – tylko dla organizatora */}
         {isTournyOrg && (
           <div className="bulk-toolbar">
-            <button className="btn-secondary" onClick={selectAllVisible}>Zaznacz widoczne</button>
-            <button className="btn-secondary" onClick={clearSelection}>Wyczyść</button>
+            <div className="bulk-buttons">
+              <button className="btn-secondary" onClick={selectAllVisible}>Zaznacz widoczne</button>
+              <button className="btn-secondary" onClick={clearSelection}>Wyczyść</button>
+            </div>
 
             <div className="bulk-assign">
               <div className="combo" ref={comboRef}>
@@ -425,6 +660,67 @@ export default function TournamentMatches({ roles: rolesProp }) {
             </div>
           </div>
         )}
+
+        {/* KO toolbar */}
+        {isTournyOrg && (
+          <div className="ko-toolbar">
+            <div className="ko-row">
+              <strong>Zasiew KO:</strong>
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={overwrite}
+                  onChange={(e) => setOverwrite(e.target.checked)}
+                />
+                Nadpisz istniejące pary
+              </label>
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={avoidSameGroup}
+                  onChange={(e) => setAvoidSameGroup(e.target.checked)}
+                />
+                Unikaj tej samej grupy (A1 ≠ A2)
+              </label>
+
+              <button className="btn-secondary" onClick={handleSeedPreset}>
+                Zasiej wg schematu
+              </button>
+              <button className="btn-primary" onClick={handleSeedRandom}>
+                Zasiej losowo
+              </button>
+            </div>
+
+            <div className="ko-row">
+              <strong>Reset KO od rundy:</strong>
+              <select
+                value={resetFrom}
+                onChange={(e) => setResetFrom(e.target.value)}
+                className="select"
+              >
+                <option value="1/8">1/8 finału</option>
+                <option value="Ćwierćfinał">Ćwierćfinał</option>
+                <option value="Półfinał">Półfinał</option>
+                <option value="Finał">Finał</option>
+              </select>
+              <button className="btn-danger" onClick={handleResetKO}>
+                Resetuj od tej rundy
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <div className="tabs-container">
+          {Object.keys(TABS).map(tab => (
+            <button
+              key={tab}
+              className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {TABS[tab]}
+            </button>
+          ))}
       </div>
 
       {loading ? (
@@ -442,6 +738,95 @@ export default function TournamentMatches({ roles: rolesProp }) {
         </div>
       ) : (
         <p>Brak meczów w tej kategorii.</p>
+      )}
+
+      {/* Modal: ręczne parowanie KO (tylko dopuszczeni) */}
+      {pairingOpen && (
+        <div className="pair-modal__backdrop" role="dialog" aria-modal="true">
+          <div className="pair-modal__card">
+            <div className="pair-modal__header">
+              <h3>Ustaw parę {pairingMatch ? `– ${pairingMatch.round}` : ''}</h3>
+              <button className="pair-modal__close" aria-label="Zamknij" onClick={closePairingModal}>×</button>
+            </div>
+
+            <div className="pair-modal__body">
+              <div className="pairing-row">
+                <label className="pairing-label">Zawodnik A</label>
+                <div className="pairing-combo" ref={p1ComboRef}>
+                  <input
+                    className="pairing-input"
+                    placeholder="Szukaj zawodnika…"
+                    value={p1Query}
+                    onFocus={() => setP1Open(true)}
+                    onChange={(e) => { setP1Query(e.target.value); setP1User(null); setP1Open(true); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setP1Open(false); }}
+                  />
+                  {p1Open && (
+                    <ul className="pairing-list">
+                      {filterEligible(p1Query, p2User?.id).length ? (
+                        filterEligible(p1Query, p2User?.id).map(u => (
+                          <li
+                            key={u.id}
+                            onMouseDown={() => {
+                              setP1User(u);
+                              setP1Query(`${u.name} ${u.surname}`);
+                              setP1Open(false);
+                            }}
+                          >
+                            {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="muted">Brak dopuszczonych</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <div className="pairing-row">
+                <label className="pairing-label">Zawodnik B</label>
+                <div className="pairing-combo" ref={p2ComboRef}>
+                  <input
+                    className="pairing-input"
+                    placeholder="Szukaj zawodnika…"
+                    value={p2Query}
+                    onFocus={() => setP2Open(true)}
+                    onChange={(e) => { setP2Query(e.target.value); setP2User(null); setP2Open(true); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setP2Open(false); }}
+                  />
+                  {p2Open && (
+                    <ul className="pairing-list">
+                      {filterEligible(p2Query, p1User?.id).length ? (
+                        filterEligible(p2Query, p1User?.id).map(u => (
+                          <li
+                            key={u.id}
+                            onMouseDown={() => {
+                              setP2User(u);
+                              setP2Query(`${u.name} ${u.surname}`);
+                              setP2Open(false);
+                            }}
+                          >
+                            {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="muted">Brak dopuszczonych</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pair-modal__footer">
+              <button className="btn-secondary" onClick={swapSides}>Zamień strony</button>
+              <div className="pair-modal__spacer" />
+              <button className="btn-secondary" onClick={closePairingModal}>Anuluj</button>
+              <button className="btn-primary" onClick={savePairing}>Zapisz</button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
