@@ -43,9 +43,9 @@ function roundTitleByKey(k) {
 }
 
 function matchIndex(label = '') {
-    // np. "1/8 finału – Mecz 3" → 3
-    const m = /mecz\s+(\d+)/i.exec(label || '');
-    return m ? parseInt(m[1], 10) : 9999;
+    // wyciąga ostatni numer po słowie "Mecz"
+    const m = /mecz\D*([0-9]+)\s*$/i.exec(label || '');
+    return m ? Number(m[1]) : null;
 }
 
 function isKO(label = '') {
@@ -166,9 +166,12 @@ export default function TournamentBracket() {
         // posortuj mecze w kolumnie po indeksie meczu (jeśli jest) inaczej po id
         for (const [t, arr] of buckets) {
             arr.sort((a, b) => {
-                const ai = matchIndex(a.round), bi = matchIndex(b.round);
-                if (ai !== bi) return ai - bi;
-                return a.id - b.id;
+                const ai = matchIndex(a.round);
+                const bi = matchIndex(b.round);
+                if (ai != null && bi != null) return ai - bi;  // NUMERYCZNIE
+                if (ai != null) return -1;
+                if (bi != null) return 1;
+                return a.id - b.id; // fallback stabilny
             });
         }
         // posortuj kolumny wg ROUND_COLUMNS i wyfiltruj tylko te, które mają mecze

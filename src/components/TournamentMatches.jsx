@@ -22,6 +22,25 @@ const TABS = {
   finished: 'Zakończone',
 };
 
+const matchNo = (label = '') => {
+  const m = /mecz\s*(\d+)/i.exec(label || '');
+  return m ? parseInt(m[1], 10) : 9999;
+};
+
+// na górze pliku (obok innych stałych)
+const RESET_ROUNDS = [
+  '1/64 finału',
+  '1/32 finału',
+  '1/16 finału',
+  '1/8 finału',
+  'Ćwierćfinał',
+  'Półfinał',
+  'Finał',
+];
+
+
+
+
 // wykrywanie rund KO (obsługuje „1/8 finału – Mecz X”, „Ćwierćfinał – …”, itp.)
 const isKO = (round = '') =>
   /(1\/(8|16|32|64)\s*finału|ćwierćfinał|półfinał|finał)/i.test(round);
@@ -83,7 +102,9 @@ export default function TournamentMatches({ roles: rolesProp }) {
   // KO seeding – opcje
   const [overwrite, setOverwrite] = useState(false);
   const [avoidSameGroup, setAvoidSameGroup] = useState(true);
-  const [resetFrom, setResetFrom] = useState('1/8');
+  const [resetFrom, setResetFrom] = useState('1/8 finału');
+  const [resetBusy, setResetBusy] = useState(false);
+
 
   /* --------------------------------
    *  SOCKET
@@ -95,13 +116,28 @@ export default function TournamentMatches({ roles: rolesProp }) {
    *  POMOCNICZE
    * ------------------------------ */
   const groupMatchesByRound = useCallback((list) => {
-    return list.reduce((acc, match) => {
-      const round = match.round || '—';
-      if (!acc[round]) acc[round] = [];
-      acc[round].push(match);
+    return list.reduce((acc, m) => {
+      // odetnij wszystko po minusie (obsłuż hyphen i en-dash)
+      const base = (m.round || '').split(/[-–]/)[0].trim() || '—';
+      if (!acc[base]) acc[base] = [];
+      acc[base].push(m);
       return acc;
     }, {});
   }, []);
+
+
+  const visibleGroups = useMemo(() => {
+    const out = {};
+    for (const [roundName, arr] of Object.entries(groupedMatches)) {
+      const allTBD = arr.length > 0 && arr.every(m =>
+        m.status === 'scheduled' && !m.player1Id && !m.player2Id
+      );
+      if (allTBD) continue; // chowamy całkiem puste rundy
+      out[roundName] = arr;
+    }
+    return out;
+  }, [groupedMatches]);
+
 
   const fetchForTab = useCallback(async () => {
     setLoading(true);
@@ -582,17 +618,17 @@ export default function TournamentMatches({ roles: rolesProp }) {
     );
   };
 
+
   const sortedRounds = useMemo(() => {
-    const keys = Object.keys(groupedMatches);
+    const keys = Object.keys(visibleGroups);
     return keys.sort((a, b) => {
       const typeA = ROUND_ORDER.find(type => a.startsWith(type));
       const typeB = ROUND_ORDER.find(type => b.startsWith(type));
       const indexA = typeA ? ROUND_ORDER.indexOf(typeA) : 999;
       const indexB = typeB ? ROUND_ORDER.indexOf(typeB) : 999;
-      if (indexA === indexB) return a.localeCompare(b);
-      return indexA - indexB;
+      return indexA === indexB ? a.localeCompare(b) : indexA - indexB;
     });
-  }, [groupedMatches]);
+  }, [visibleGroups])
 
   /* ============================================================================
    *  JSX
@@ -698,11 +734,15 @@ export default function TournamentMatches({ roles: rolesProp }) {
                 onChange={(e) => setResetFrom(e.target.value)}
                 className="select"
               >
+                <option value="1/64">1/64 finału</option>
+                <option value="1/32">1/32 finału</option>
+                <option value="1/16">1/16 finału</option>
                 <option value="1/8">1/8 finału</option>
                 <option value="Ćwierćfinał">Ćwierćfinał</option>
                 <option value="Półfinał">Półfinał</option>
                 <option value="Finał">Finał</option>
               </select>
+
               <button className="btn-danger" onClick={handleResetKO}>
                 Resetuj od tej rundy
               </button>
@@ -712,15 +752,15 @@ export default function TournamentMatches({ roles: rolesProp }) {
       </header>
 
       <div className="tabs-container">
-          {Object.keys(TABS).map(tab => (
-            <button
-              key={tab}
-              className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {TABS[tab]}
-            </button>
-          ))}
+        {Object.keys(TABS).map(tab => (
+          <button
+            key={tab}
+            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {TABS[tab]}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -732,7 +772,7 @@ export default function TournamentMatches({ roles: rolesProp }) {
           {sortedRounds.map(roundName => (
             <div key={roundName} className="match-group-section">
               <h3>{roundName}</h3>
-              {groupedMatches[roundName].map(renderMatch)}
+              {visibleGroups[roundName].map(renderMatch)}
             </div>
           ))}
         </div>
