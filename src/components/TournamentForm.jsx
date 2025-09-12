@@ -1,9 +1,12 @@
-// client/src/components/TournamentForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Tag, Calendar, MapPin, Settings2 } from 'lucide-react';
 import '../styles/tournamentForm.css';
 import Breadcrumbs from './Breadcrumbs';
+
+const toInt = (v) => (v === '' || v == null ? null : Number(v));
+const pow2 = (k) => (k <= 1 ? 1 : 2 ** Math.ceil(Math.log2(k)));
+const ALLOWED_BRACKETS = [128, 64, 32, 16, 8, 4, 2];
 
 export default function TournamentForm({
   initialData = null,
@@ -23,28 +26,44 @@ export default function TournamentForm({
   ];
 
   const emptyForm = {
+    // podstawowe
     name: '',
     description: '',
-    category: '', // Zmiana na pojedyncze pole
-    gender: '', // Zmiana na pojedyncze pole
+    category: '',
+    gender: '',
     start_date: '',
     end_date: '',
     registration_deadline: '',
+    // lokalizacja
     street: '',
     postalCode: '',
     city: '',
     country: '',
+    // limit / status
     participant_limit: '',
-    isGroupPhase: false,
+    applicationsOpen: true,
+    // reguły gry
     setsToWin: 2,
     gamesPerSet: 6,
     tieBreakType: 'super_tie_break',
-    applicationsOpen: true
+    // format/KO/grupy (NOWE)
+    format: 'GROUPS_KO',          // 'GROUPS_KO' | 'KO_ONLY'
+    groupSize: 4,                 // 3 lub 4 (dla GROUPS_KO)
+    qualifiersPerGroup: 2,        // 1 lub 2 (dla GROUPS_KO)
+    allowByes: true,
+    koSeedingPolicy: 'RANDOM_CROSS', // 'RANDOM_CROSS' | 'STRUCTURED'
+    avoidSameGroupInR1: true,
+    // legacy
+    isGroupPhase: true,
   };
 
   const [form, setForm] = useState(emptyForm);
   const [step, setStep] = useState(0);
 
+  const isKOonly = form.format === 'KO_ONLY';
+  const isGroupsKO = form.format === 'GROUPS_KO';
+
+  // walidacja kroków
   const isStepValid = s => {
     if (s === 0) {
       if (!form.name.trim() || !form.category || !form.gender) return false;
@@ -52,12 +71,42 @@ export default function TournamentForm({
     if (s === 1) {
       if (!form.start_date || !form.end_date) return false;
     }
+    if (s === 3) {
+      // KO ONLY → participant_limit musi być z ALLOWED_BRACKETS
+      if (isKOonly) {
+        const lim = toInt(form.participant_limit);
+        if (!lim || !ALLOWED_BRACKETS.includes(lim)) return false;
+      }
+
+      // GROUPS+KO → walidacje jak wcześniej
+      if (isGroupsKO) {
+        if (![3,4].includes(Number(form.groupSize))) return false;
+        if (![1,2].includes(Number(form.qualifiersPerGroup))) return false;
+        const limit = Number(form.participant_limit);
+        if (!limit || limit < 2) return false;
+        if (limit && Number(form.groupSize) && (limit % Number(form.groupSize) !== 0)) return false;
+
+        // jeśli BYE wyłączone → K musi być potęgą 2
+        if (!form.allowByes) {
+          const groups = limit / Number(form.groupSize);
+          if (!Number.isInteger(groups)) return false;
+          const K = Number(groups) * Number(form.qualifiersPerGroup || 0);
+          if (![2,4,8,16,32,64,128].includes(K)) return false;
+        }
+      }
+    }
     return true;
   };
 
   useEffect(() => {
     if (initialData) {
-      setForm(initialData);
+      const fmt = initialData.format || (initialData.isGroupPhase ? 'GROUPS_KO' : 'KO_ONLY');
+      setForm({
+        ...emptyForm,
+        ...initialData,
+        format: fmt,
+        isGroupPhase: fmt === 'GROUPS_KO',
+      });
     }
   }, [initialData]);
 
@@ -68,6 +117,7 @@ export default function TournamentForm({
     }
   }, [isEdit]);
 
+  // spójność dat
   useEffect(() => {
     if (!form.start_date) return;
     const start = new Date(form.start_date);
@@ -82,6 +132,23 @@ export default function TournamentForm({
     }
   }, [form.start_date]);
 
+  // format → legacy flaga
+  useEffect(() => {
+    setForm(f => ({ ...f, isGroupPhase: f.format === 'GROUPS_KO' }));
+  }, [form.format]);
+
+  // KO ONLY: automatycznie wymuś wartość participant_limit jako potęgę 2 (jeśli puste)
+  useEffect(() => {
+    if (isKOonly) {
+      setForm(f => ({
+        ...f,
+        participant_limit: f.participant_limit && ALLOWED_BRACKETS.includes(Number(f.participant_limit))
+          ? f.participant_limit
+          : 32 // sensowna domyślna drabinka
+      }));
+    }
+  }, [isKOonly]);
+
   const handleChange = e => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({
@@ -91,9 +158,7 @@ export default function TournamentForm({
   };
 
   const goTo = i => {
-    if (i < step || (i > step && isStepValid(step))) {
-      setStep(i);
-    }
+    if (i < step || (i > step && isStepValid(step))) setStep(i);
   };
   const next = () => isStepValid(step) && setStep(s => Math.min(s + 1, steps.length - 1));
   const prev = () => setStep(s => Math.max(s - 1, 0));
@@ -106,6 +171,47 @@ export default function TournamentForm({
   const handleFinalSubmit = () => {
     onSubmit(form);
   };
+
+  // ==== LIVE kalkulator dla GROUPS_KO
+  const groups = useMemo(() => {
+    if (!isGroupsKO) return null;
+    const limit = toInt(form.participant_limit);
+    const gs = toInt(form.groupSize);
+    if (!limit || !gs) return null;
+    return limit / gs;
+  }, [isGroupsKO, form.participant_limit, form.groupSize]);
+
+  const groupsAreInt = useMemo(() => {
+    if (!isGroupsKO) return true;
+    return Number.isInteger(groups || 0);
+  }, [isGroupsKO, groups]);
+
+  const K = useMemo(() => {
+    if (!isGroupsKO) return null;
+    const q = toInt(form.qualifiersPerGroup);
+    if (!groups || !q) return null;
+    return groups * q;
+  }, [isGroupsKO, groups, form.qualifiersPerGroup]);
+
+  const bracketSize = useMemo(() => (K ? pow2(K) : null), [K]);
+  const byeCount = useMemo(() => {
+    if (!isGroupsKO) return null;
+    if (!form.allowByes || !K || !bracketSize) return 0;
+    return Math.max(0, bracketSize - K);
+  }, [isGroupsKO, form.allowByes, K, bracketSize]);
+
+  // ostrzeżenia (UI only)
+  const warnDivisible =
+    isGroupsKO &&
+    form.participant_limit &&
+    form.groupSize &&
+    Number(form.participant_limit) % Number(form.groupSize) !== 0;
+
+  const warnByeOffPower2 =
+    isGroupsKO &&
+    !form.allowByes &&
+    K != null &&
+    ![2,4,8,16,32,64,128].includes(K);
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
@@ -238,24 +344,171 @@ export default function TournamentForm({
         {step === 3 && (
           <div className="wizard-card">
             <h3><Settings2 size={24} /> Ustawienia</h3>
-            <label htmlFor="participant_limit">Limit uczestników</label>
-            <input
-              id="participant_limit"
-              name="participant_limit"
-              type="number"
-              value={form.participant_limit}
+
+            {/* FORMAT */}
+            <label htmlFor="format">Format</label>
+            <select
+              id="format"
+              name="format"
+              value={form.format}
               onChange={handleChange}
-            />
-            <div className="form-group checkbox-group">
+            >
+              <option value="GROUPS_KO">Grupy + KO</option>
+              <option value="KO_ONLY">Tylko KO</option>
+            </select>
+
+            {/* LIMIT/BRACKET */}
+            {isKOonly ? (
+              <>
+                <label htmlFor="participant_limit">Wielkość drabinki</label>
+                <select
+                  id="participant_limit"
+                  name="participant_limit"
+                  value={form.participant_limit}
+                  onChange={handleChange}
+                >
+                  {ALLOWED_BRACKETS.map(n => (
+                    <option key={n} value={n}>{n} zawodników</option>
+                  ))}
+                </select>
+                <div className="hint">
+                  Rejestracja zostanie domknięta na wybranej wielkości drabinki.
+                </div>
+              </>
+            ) : (
+              <>
+                <label htmlFor="participant_limit">Limit uczestników</label>
                 <input
-                  id="isGroupPhase"
-                  name="isGroupPhase"
-                  type="checkbox"
-                  checked={form.isGroupPhase}
+                  id="participant_limit"
+                  name="participant_limit"
+                  type="number"
+                  min="2"
+                  value={form.participant_limit}
                   onChange={handleChange}
                 />
-                <label htmlFor="isGroupPhase">Faza grupowa</label>
-            </div>
+              </>
+            )}
+
+            {/* Rejestracja otwarta */}
+            <label className="checkbox-line">
+              <input
+                id="applicationsOpen"
+                name="applicationsOpen"
+                type="checkbox"
+                checked={form.applicationsOpen}
+                onChange={handleChange}
+              />
+              <span>Rejestracja otwarta</span>
+            </label>
+
+            {/* GROUPS SETTINGS */}
+            {isGroupsKO && (
+              <>
+                <label htmlFor="groupSize">Rozmiar grup</label>
+                <select
+                  id="groupSize"
+                  name="groupSize"
+                  value={form.groupSize}
+                  onChange={handleChange}
+                >
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                </select>
+
+                <label htmlFor="qualifiersPerGroup">Ilu wychodzi z grupy</label>
+                <select
+                  id="qualifiersPerGroup"
+                  name="qualifiersPerGroup"
+                  value={form.qualifiersPerGroup}
+                  onChange={handleChange}
+                >
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                </select>
+
+                <label className="checkbox-line">
+                  <input
+                    id="allowByes"
+                    name="allowByes"
+                    type="checkbox"
+                    checked={form.allowByes}
+                    onChange={handleChange}
+                  />
+                  <span>Pozwalaj na BYE (wolne losy przy niepełnej potędze 2)</span>
+                </label>
+
+                <label htmlFor="koSeedingPolicy">Seeding KO</label>
+                <select
+                  id="koSeedingPolicy"
+                  name="koSeedingPolicy"
+                  value={form.koSeedingPolicy}
+                  onChange={handleChange}
+                >
+                  <option value="RANDOM_CROSS">Losowy: zwycięzcy vs drugie</option>
+                  <option value="STRUCTURED">Schemat (A1–H2 itd.)</option>
+                </select>
+
+                <label className="checkbox-line">
+                  <input
+                    id="avoidSameGroupInR1"
+                    name="avoidSameGroupInR1"
+                    type="checkbox"
+                    checked={form.avoidSameGroupInR1}
+                    onChange={handleChange}
+                  />
+                  <span>Unikaj par z tej samej grupy w 1. rundzie</span>
+                </label>
+
+                {/* LIVE kalkulator */}
+                <div className="panel">
+                  <strong>Kalkulator:</strong>
+                  <div>Grupy: {groups ?? '—'} {groups != null && !groupsAreInt && ' (❗️limit nie dzieli się przez rozmiar grup)'}</div>
+                  <div>Awansuje: {K ?? '—'}</div>
+                  <div>Drabinka: {bracketSize ?? '—'}</div>
+                  <div>BYE: {byeCount ?? '—'}</div>
+                </div>
+
+                {warnDivisible && (
+                  <div className="error">
+                    Limit uczestników musi dzielić się przez rozmiar grup.
+                  </div>
+                )}
+                {warnByeOffPower2 && (
+                  <div className="error">
+                    BYE wyłączone: liczba awansujących (K) musi być potęgą 2.
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* KO ONLY – BYE i seeding też mają sens */}
+            {isKOonly && (
+              <>
+                <label className="checkbox-line">
+                  <input
+                    id="allowByesKO"
+                    name="allowByes"
+                    type="checkbox"
+                    checked={form.allowByes}
+                    onChange={handleChange}
+                  />
+                  <span>Pozwalaj na BYE (gdy zapisanych mniej niż drabinka)</span>
+                </label>
+
+                <label htmlFor="koSeedingPolicyKO">Seeding KO</label>
+                <select
+                  id="koSeedingPolicyKO"
+                  name="koSeedingPolicy"
+                  value={form.koSeedingPolicy}
+                  onChange={handleChange}
+                >
+                  <option value="RANDOM_CROSS">Losowy</option>
+                  <option value="STRUCTURED">Schemat</option>
+                </select>
+              </>
+            )}
+
+            {/* Reguły gry */}
             <label htmlFor="setsToWin">Setów do wygrania</label>
             <input
               id="setsToWin"

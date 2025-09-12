@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { getGroupStandings, seedKnockout, resetFromStage } from '../services/matchService';
-import { toast } from 'react-toastify';
-import {useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { getGroupStandings} from '../services/matchService';
+import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function GroupStandings({ tournamentId, isOrganizer }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [groups, setGroups] = useState([]);
   const [err, setErr] = useState(null);
   const [resetKey, setResetKey] = useState('QF');
+  const socketRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -29,28 +31,21 @@ export default function GroupStandings({ tournamentId, isOrganizer }) {
     load();
   }, [tournamentId]);
 
-  const handleSeedKnockout = async () => {
-    try {
-      setIsSeeding(true);
-      const res = await seedKnockout(tournamentId, { force: true });
-      toast.success(`Drabinka zasiana${res?.updated ? ` (zaktualizowano: ${res.updated})` : ''}`);
-      // same standings zwykle się nie zmieniają od seeda KO, ale jak chcesz:
-      // await load();
-    } catch (e) {
-      toast.error(e.message || 'Błąd zasiewania drabinki');
-    } finally {
-      setIsSeeding(false);
-    }
-  };
+  useEffect(() => {
+    const s = io(API_URL, { withCredentials: true });
+    socketRef.current = s;
+    const tid = Number(tournamentId);
+    s.emit('join-tournament', tid);
 
-  const handleResetFrom = async () => {
-    try {
-      const r = await resetFromStage(tournamentId, resetKey);
-      toast.success(`Wyczyszczono ${r.cleared} meczów od etapu ${resetKey}`);
-    } catch (e) {
-      toast.error(e.message);
-    }
-  };
+    const onInvalidate = () => { load(); };
+    s.on('standings-invalidate', onInvalidate);
+
+    return () => {
+      s.emit('leave-tournament', tid);
+      s.off('standings-invalidate', onInvalidate);
+      s.disconnect();
+    };
+  }, [tournamentId]);
 
   return (
     <section className="group-standings">
@@ -99,6 +94,7 @@ export default function GroupStandings({ tournamentId, isOrganizer }) {
           ))}
         </div>
       )}
+
       <div className="header-actions">
         <button
           className="btn-primary"

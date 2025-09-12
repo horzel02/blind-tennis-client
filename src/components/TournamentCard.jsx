@@ -5,46 +5,36 @@ import '../styles/tournamentCard.css';
 
 export default function TournamentCard({ tournament }) {
   const navigate = useNavigate();
-  const {
-    id,
-    name,
-    start_date,
-    end_date,
-    city,
-    category,
-    applicationsOpen
-  } = tournament;
+  const { id, name, start_date, end_date, city, applicationsOpen, categories } = tournament;
+
+  const cat = categories && categories.length ? categories[0] : null;
+  const genderLabel =
+    cat?.gender === 'male' ? 'Mężczyźni' :
+    cat?.gender === 'female' ? 'Kobiety' :
+    cat?.gender ? cat.gender : '—';
+  const catLabel = cat?.categoryName || '—';
 
   return (
-    <article
-      className="card"
-      tabIndex="0"
-      role="region"
-      aria-labelledby={`tour-${id}-title`}
-    >
-      <h2 id={`tour-${id}-title`} className="card-title">
-        {name}
-      </h2>
+    <article className="card" tabIndex="0" role="region" aria-labelledby={`tour-${id}-title`}>
+      <h2 id={`tour-${id}-title`} className="card-title">{name}</h2>
+
+      {/* pigułki */}
+      <div className="pills">
+        <span className="pill">{genderLabel}</span>
+        <span className="pill">{catLabel}</span>
+      </div>
 
       <p className="card-date">
-        {new Date(start_date).toLocaleDateString()} –{' '}
-        {new Date(end_date).toLocaleDateString()}
+        {new Date(start_date).toLocaleDateString()} – {new Date(end_date).toLocaleDateString()}
       </p>
 
       {city && <p className="card-location">Lokalizacja: {city}</p>}
-      {category && <p className="card-meta">Kategoria: {category}</p>}
       <p className={`card-meta ${applicationsOpen ? 'open' : 'closed'}`}>
-        {applicationsOpen
-          ? 'Przyjmowanie zgłoszeń'
-          : 'Zamknięte zgłoszenia'}
+        {applicationsOpen ? 'Przyjmowanie zgłoszeń' : 'Zamknięte zgłoszenia'}
       </p>
 
       <div className="card-actions">
-        {/* Tylko przycisk “Szczegóły” */}
-        <button
-          onClick={() => navigate(`/tournaments/${id}/details`)}
-          className="btn-secondary"
-        >
+        <button onClick={() => navigate(`/tournaments/${id}/details`)} className="btn-secondary">
           Szczegóły
         </button>
       </div>

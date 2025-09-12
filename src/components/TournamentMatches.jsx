@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
-import { useAuth } from '../contexts/AuthContext';
 
 import * as matchService from '../services/matchService';
-import * as roleService from '../services/tournamentUserRoleService';
-import { searchUsers } from '../services/userService';
+import * as tournamentService from '../services/tournamentService';
 
 import '../styles/tournamentMatches.css';
 
@@ -21,25 +19,6 @@ const TABS = {
   in_progress: 'W trakcie',
   finished: 'Zakończone',
 };
-
-const matchNo = (label = '') => {
-  const m = /mecz\s*(\d+)/i.exec(label || '');
-  return m ? parseInt(m[1], 10) : 9999;
-};
-
-// na górze pliku (obok innych stałych)
-const RESET_ROUNDS = [
-  '1/64 finału',
-  '1/32 finału',
-  '1/16 finału',
-  '1/8 finału',
-  'Ćwierćfinał',
-  'Półfinał',
-  'Finał',
-];
-
-
-
 
 // wykrywanie rund KO (obsługuje „1/8 finału – Mecz X”, „Ćwierćfinał – …”, itp.)
 const isKO = (round = '') =>
@@ -57,37 +36,29 @@ const ROUND_ORDER = [
   'Finał',
 ];
 
+// KO bazowe etykiety i normalizacja (do resetu od wybranej rundy)
+const KO_BASES = ['1/64', '1/32', '1/16', '1/8', 'Ćwierćfinał', 'Półfinał', 'Finał'];
+const baseRoundName = (label = '') => {
+  const s = String(label).toLowerCase();
+  if (s.includes('1/64')) return '1/64';
+  if (s.includes('1/32')) return '1/32';
+  if (s.includes('1/16')) return '1/16';
+  if (s.includes('1/8')) return '1/8';
+  if (s.includes('ćwierćfina')) return 'Ćwierćfinał';
+  if (s.includes('półfina')) return 'Półfinał';
+  if (s.includes('finał')) return 'Finał';
+  return null;
+};
+
 /* ============================================================================
  *  KOMPONENT
  * ========================================================================== */
 
-export default function TournamentMatches({ roles: rolesProp }) {
-  const { id: tournamentId } = useParams();
-  const { user } = useAuth();
-  const navigate = useNavigate();
+export default function TournamentMatches() {
+  const { id } = useParams();
+  const tournamentId = Number(id);
 
-  /* --------------------------------
-   *  ROLE
-   * ------------------------------ */
-  const [roles, setRoles] = useState(rolesProp || []);
-  useEffect(() => { setRoles(rolesProp || []); }, [rolesProp]);
-
-  useEffect(() => {
-    if (rolesProp) return;
-    roleService.listRoles(tournamentId).then(setRoles).catch(() => setRoles([]));
-  }, [tournamentId, rolesProp]);
-
-  const isTournyOrg = useMemo(
-    () => roles.some(r => r.role === 'organizer' && r.user.id === user?.id),
-    [roles, user]
-  );
-  const isTournyReferee = useMemo(
-    () => roles.some(r => r.role === 'referee' && r.user.id === user?.id),
-    [roles, user]
-  );
-  const canScore = (match) => !!user && isTournyReferee && match?.referee?.id === user?.id;
-
-  /* --------------------------------
+  /* ------------------------------
    *  DANE / STAN
    * ------------------------------ */
   const [activeTab, setActiveTab] = useState('scheduled');
@@ -96,23 +67,48 @@ export default function TournamentMatches({ roles: rolesProp }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // wybory listy
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  // ustawienia turnieju (format/koSeedingPolicy/etc.)
+  const [settings, setSettings] = useState(null);
 
-  // KO seeding – opcje
-  const [overwrite, setOverwrite] = useState(false);
-  const [avoidSameGroup, setAvoidSameGroup] = useState(true);
-  const [resetFrom, setResetFrom] = useState('1/8 finału');
+  // resety
+  const [resetFrom, setResetFrom] = useState('');
+  const [alsoKO, setAlsoKO] = useState(true); // <- DOMYŚLNIE USUŃ TEŻ KO
   const [resetBusy, setResetBusy] = useState(false);
 
+  // BULK: wybór meczów + sędzia
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkRefereeId, setBulkRefereeId] = useState(''); // puste => usuń sędziego
+  const [bulkBusy, setBulkBusy] = useState(false);
 
-  /* --------------------------------
+  // MODAL: ręczne parowanie KO
+  const [pairingOpen, setPairingOpen] = useState(false);
+  const [pairingMatch, setPairingMatch] = useState(null);
+  const [eligible, setEligible] = useState([]);
+
+  const [p1User, setP1User] = useState(null);
+  const [p2User, setP2User] = useState(null);
+  const [p1Query, setP1Query] = useState('');
+  const [p2Query, setP2Query] = useState('');
+  const [p1Open, setP1Open] = useState(false);
+  const [p2Open, setP2Open] = useState(false);
+  const p1ComboRef = useRef(null);
+  const p2ComboRef = useRef(null);
+
+  useEffect(() => {
+    let alive = true;
+    tournamentService.getTournamentSettings(tournamentId)
+      .then(s => { if (alive) setSettings(s); })
+      .catch(() => setSettings({ format: 'GROUPS_KO' })); // sensowny fallback
+    return () => { alive = false; };
+  }, [tournamentId]);
+
+  /* ------------------------------
    *  SOCKET
    * ------------------------------ */
   const socketRef = useRef(null);
   const joinedRoomsRef = useRef(new Set());
 
-  /* --------------------------------
+  /* ------------------------------
    *  POMOCNICZE
    * ------------------------------ */
   const groupMatchesByRound = useCallback((list) => {
@@ -124,7 +120,6 @@ export default function TournamentMatches({ roles: rolesProp }) {
       return acc;
     }, {});
   }, []);
-
 
   const visibleGroups = useMemo(() => {
     const out = {};
@@ -138,23 +133,28 @@ export default function TournamentMatches({ roles: rolesProp }) {
     return out;
   }, [groupedMatches]);
 
-
   const fetchForTab = useCallback(async () => {
     setLoading(true);
+    let fetched = [];
     try {
-      const data = await matchService.getMatchesByTournamentId(tournamentId, activeTab);
-      setMatches(data);
-      setGroupedMatches(groupMatchesByRound(data));
+      fetched = await matchService.getMatchesByTournamentId(tournamentId, activeTab);
+      setMatches(fetched);
+      setGroupedMatches(groupMatchesByRound(fetched));
       setError(null);
-      // wyczyść zaznaczenia niewidocznych
-      setSelectedIds(prev => new Set([...prev].filter(mid => data.some(m => m.id === mid))));
     } catch (err) {
       setError(err.message || 'Błąd podczas ładowania meczów. Sprawdź, czy jesteś zalogowany.');
       setMatches([]);
       setGroupedMatches({});
-      setSelectedIds(new Set());
+      fetched = [];
     } finally {
       setLoading(false);
+      // po każdym refetchu prostujemy wybór (usunie niewidoczne/nieistniejące)
+      setSelected(prev => {
+        const ids = new Set(fetched.map(m => m.id));
+        const next = new Set();
+        prev.forEach(id => { if (ids.has(id)) next.add(id); });
+        return next;
+      });
     }
   }, [tournamentId, activeTab, groupMatchesByRound]);
 
@@ -163,6 +163,21 @@ export default function TournamentMatches({ roles: rolesProp }) {
   /* ============================================================================
    *  SOCKET LIFECYCLE + HANDLERY
    * ========================================================================== */
+
+  const availableResetRounds = useMemo(() => {
+    const bases = new Set();
+    for (const m of matches) {
+      const b = baseRoundName(m.round);
+      if (b) bases.add(b);
+    }
+    return KO_BASES.filter(b => bases.has(b));
+  }, [matches]);
+
+  useEffect(() => {
+    if (!resetFrom && availableResetRounds.length) {
+      setResetFrom(availableResetRounds[0]); // najwcześniejsza dostępna KO-runda
+    }
+  }, [availableResetRounds, resetFrom]);
 
   // stabilny handler invalidacji — refetch po seed/reset
   const onInvalidate = useCallback(() => {
@@ -180,11 +195,13 @@ export default function TournamentMatches({ roles: rolesProp }) {
       if (status !== activeTab) {
         // wypadł z zakładki
         setMatches(prev => prev.filter(m => m.id !== matchId));
-        setSelectedIds(prev => {
-          if (!prev.has(matchId)) return prev;
-          const next = new Set(prev);
-          next.delete(matchId);
-          return next;
+        setSelected(prev => {
+          if (prev.has(matchId)) {
+            const c = new Set(prev);
+            c.delete(matchId);
+            return c;
+          }
+          return prev;
         });
         return;
       }
@@ -195,7 +212,7 @@ export default function TournamentMatches({ roles: rolesProp }) {
           if (idx !== -1) { const copy = [...prev]; copy[idx] = m; return copy; }
           return [...prev, m];
         });
-      }).catch(() => { });
+      }).catch(() => { /* ignore */ });
     };
 
     const onMatchUpdated = (updatedMatch) => {
@@ -219,16 +236,19 @@ export default function TournamentMatches({ roles: rolesProp }) {
       );
     };
 
+    // NOWE: aktualizacja sędziego przez socket
     const onRefereeChanged = ({ matchId, referee }) => {
-      setMatches(prev => prev.map(m => (m.id === matchId ? { ...m, referee } : m)));
+      setMatches(prev =>
+        prev.map(m => m.id === matchId ? { ...m, referee } : m)
+      );
     };
 
     // rejestracja
     s.on('match-status-changed', onStatusChanged);
     s.on('match-updated', onMatchUpdated);
     s.on('real-time-score-update', onLive);
-    s.on('match-referee-changed', onRefereeChanged);
     s.on('matches-invalidate', onInvalidate);
+    s.on('match-referee-changed', onRefereeChanged);
 
     return () => {
       s.emit('leave-tournament', tid);
@@ -238,27 +258,12 @@ export default function TournamentMatches({ roles: rolesProp }) {
       s.off('match-status-changed', onStatusChanged);
       s.off('match-updated', onMatchUpdated);
       s.off('real-time-score-update', onLive);
-      s.off('match-referee-changed', onRefereeChanged);
       s.off('matches-invalidate', onInvalidate);
+      s.off('match-referee-changed', onRefereeChanged);
 
       s.disconnect();
     };
   }, [tournamentId, activeTab, onInvalidate]);
-
-  // utrzymanie pokoi match-*
-  useEffect(() => {
-    const s = socketRef.current;
-    if (!s) return;
-    const currentIds = new Set(matches.map(m => m.id));
-    const joined = joinedRoomsRef.current;
-
-    for (const mid of currentIds) {
-      if (!joined.has(mid)) { s.emit('join-match', mid); joined.add(mid); }
-    }
-    for (const mid of Array.from(joined)) {
-      if (!currentIds.has(mid)) { s.emit('leave-match', mid); joined.delete(mid); }
-    }
-  }, [matches]);
 
   // utrzymaj groupera spójnego
   useEffect(() => {
@@ -266,179 +271,132 @@ export default function TournamentMatches({ roles: rolesProp }) {
   }, [matches, groupMatchesByRound]);
 
   /* ============================================================================
-   *  BULK: SĘDZIA
+   *  AKCJE: GENERATORY / SEED / RESET
    * ========================================================================== */
 
-  const [bulkRefereeId, setBulkRefereeId] = useState('');
-  const [selectedRef, setSelectedRef] = useState(null);
-  const [refSearch, setRefSearch] = useState('');
-  const [refOpen, setRefOpen] = useState(false);
-  const [refResults, setRefResults] = useState([]);
-  const [refLoading, setRefLoading] = useState(false);
-  const comboRef = useRef(null);
+  const hasGroupMatches = useMemo(
+    () => matches.some(m => !isKO(m.round)),
+    [matches]
+  );
 
-  // dropdown close
-  useEffect(() => {
-    const onClickAway = (e) => {
-      if (comboRef.current && !comboRef.current.contains(e.target)) setRefOpen(false);
-    };
-    document.addEventListener('mousedown', onClickAway);
-    return () => document.removeEventListener('mousedown', onClickAway);
-  }, []);
-
-  // debounce search
-  useEffect(() => {
-    const q = refSearch.trim();
-    if (!q) { setRefResults([]); return; }
-    const t = setTimeout(async () => {
-      try {
-        setRefLoading(true);
-        const users = await searchUsers(q);
-        setRefResults(users);
-      } catch {
-        setRefResults([]);
-      } finally {
-        setRefLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [refSearch]);
-
-  const ensureRefereeRole = async (userId) => {
-    const hasRole = roles.some(r => r.role === 'referee' && r.user.id === userId);
-    if (!hasRole) {
-      await roleService.addRole(tournamentId, userId, 'referee');
-      const fresh = await roleService.listRoles(tournamentId);
-      setRoles(fresh);
-    }
-  };
-
-  const pickReferee = async (u) => {
+  const handleGenerateGroups = async () => {
     try {
-      await ensureRefereeRole(u.id);
-      setSelectedRef(u);
-      setBulkRefereeId(String(u.id));
-      setRefSearch(`${u.name} ${u.surname}`);
-      setRefOpen(false);
+      const res = await matchService.generateGroupsAndKO(tournamentId);
+      toast.success(`Wygenerowano fazę grupową + szkielet KO (${res?.count ?? '?' } meczów).`);
+      await fetchForTab();
     } catch (e) {
-      toast.error(e.message || 'Nie udało się dodać roli sędziego');
+      toast.error(e.message || 'Błąd generowania grup/KO');
     }
   };
 
-  const toggleSelect = (matchId) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(matchId)) next.delete(matchId); else next.add(matchId);
-      return next;
-    });
-  };
-  const selectAllVisible = () => {
-    const visibleIds = matches.filter(m => m.status !== 'finished').map(m => m.id);
-    setSelectedIds(new Set(visibleIds));
-  };
-  const clearSelection = () => setSelectedIds(new Set());
-
-  const handleBulkAssign = async () => {
-    const ids = Array.from(selectedIds);
-    if (!ids.length || !bulkRefereeId) return;
-
-    // sędzia nie może sędziować własnego meczu
-    let conflicts = [];
-    if (selectedRef) {
-      const sid = selectedRef.id;
-      conflicts = matches
-        .filter(m => selectedIds.has(m.id))
-        .filter(m => m.player1?.id === sid || m.player2?.id === sid)
-        .map(m => m.id);
-    }
-
-    const allowedIds = ids.filter(id => !conflicts.includes(id));
-    if (!allowedIds.length) {
-      toast.error('Wybrany sędzia jest zawodnikiem we wszystkich zaznaczonych meczach');
-      return;
-    }
-
+  const handleSeedKO = async () => {
     try {
-      const result = await matchService.setMatchRefereeBulk(tournamentId, allowedIds, Number(bulkRefereeId));
-      const refUser = selectedRef || null;
-
-      setMatches(prev =>
-        prev.map(m => (allowedIds.includes(m.id) ? { ...m, referee: refUser } : m))
-      );
-
-      const skippedCount = (result?.skipped?.length ?? conflicts.length);
-      if (skippedCount > 0) {
-        toast.info(`Przypisano do ${allowedIds.length} meczów, pominięto ${skippedCount} (konflikt sędzia = zawodnik).`);
-      } else {
-        toast.success(`Przypisano sędziego do ${allowedIds.length} meczów`);
-      }
-
-      clearSelection();
+      const res = await matchService.seedKnockout(tournamentId, { overwrite: true });
+      toast.success(`Zasiano KO od ${res?.baseRound || 'rundy'} (zaktualizowano ${res?.updated ?? res?.changed ?? '?' } meczów).`);
+      await fetchForTab();
     } catch (e) {
-      toast.error(e.message || 'Nie udało się przypisać sędziego');
+      toast.error(e.message || 'Błąd zasiewania KO');
     }
   };
 
-  /* ============================================================================
-   *  SEEDING KO (schemat/losowo) + RESET KO
-   * ========================================================================== */
-
-  const handleSeedPreset = async () => {
+  const handleGenerateKOOnly = async () => {
     try {
-      await matchService.seedKnockout(tournamentId, {
-        mode: 'preset',
-        overwrite,
-        skipLocked: true,
-      });
-      toast.success('Zasiano wg schematu');
-      fetchForTab();
+      const res = await matchService.generateKnockoutOnly(tournamentId);
+      toast.success(`Wygenerowano drabinkę KO (pary R1: ${res?.created ?? '?' }).`);
+      await fetchForTab();
     } catch (e) {
-      toast.error(e.message || 'Błąd zasiewania (schemat)');
+      toast.error(e.message || 'Błąd generowania KO');
     }
   };
 
-  const handleSeedRandom = async () => {
+  const handleResetGroups = async () => {
+    if (!confirm('Na pewno usunąć WSZYSTKIE mecze fazy grupowej?')) return;
+    setResetBusy(true);
     try {
-      await matchService.seedKnockout(tournamentId, {
-        mode: 'random',
-        overwrite,
-        skipLocked: true,
-        avoidSameGroup,
-        randomSeed: Date.now(),
-      });
-      toast.success('Zasiano losowo');
-      fetchForTab();
+      const res = await matchService.resetGroupPhase(tournamentId, alsoKO);
+      toast.success(`Usunięto ${res?.cleared ?? 0} meczów grupowych${alsoKO ? ' + KO' : ''}.`);
+      await fetchForTab();
     } catch (e) {
-      toast.error(e.message || 'Błąd zasiewania (losowo)');
+      toast.error(e.message || 'Błąd usuwania meczów grupowych');
+    } finally {
+      setResetBusy(false);
     }
   };
 
   const handleResetKO = async () => {
+    if (!resetFrom) return;
+    if (!confirm(`Na pewno zresetować KO od rundy: ${resetFrom}?`)) return;
     try {
-      await matchService.resetFromStage(tournamentId, resetFrom);
-      toast.success(`Wyczyszczono KO od ${resetFrom}`);
-      fetchForTab();
+      const res = await matchService.resetKnockoutFromRound(tournamentId, resetFrom);
+      toast.success(`Wyczyszczono ${res?.cleared ?? 0} meczów od ${resetFrom}.`);
+      await fetchForTab();
     } catch (e) {
       toast.error(e.message || 'Błąd resetu KO');
     }
   };
 
   /* ============================================================================
-   *  PAROWANIE KO (modal)
+   *  AKCJE: BULK REFEREE
    * ========================================================================== */
 
-  const [pairingOpen, setPairingOpen] = useState(false);
-  const [pairingMatch, setPairingMatch] = useState(null);
-  const [eligible, setEligible] = useState([]);
+  const toggleSelected = (matchId) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(matchId)) next.delete(matchId);
+      else next.add(matchId);
+      return next;
+    });
+  };
 
-  const [p1User, setP1User] = useState(null);
-  const [p2User, setP2User] = useState(null);
-  const [p1Query, setP1Query] = useState('');
-  const [p2Query, setP2Query] = useState('');
-  const [p1Open, setP1Open] = useState(false);
-  const [p2Open, setP2Open] = useState(false);
-  const p1ComboRef = useRef(null);
-  const p2ComboRef = useRef(null);
+  const selectAllVisible = () => {
+    const ids = Object.values(visibleGroups).flat().map(m => m.id);
+    setSelected(new Set(ids));
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const handleBulkAssign = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) {
+      toast.info('Najpierw zaznacz mecze.');
+      return;
+    }
+    const refId = bulkRefereeId.trim() === '' ? null : Number(bulkRefereeId);
+    if (bulkRefereeId.trim() !== '' && (!Number.isFinite(refId) || refId <= 0)) {
+      toast.error('Podaj poprawne ID sędziego albo zostaw puste, aby usunąć.');
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      let out;
+      if (typeof matchService.assignRefereeBulk === 'function') {
+        out = await matchService.assignRefereeBulk({ tournamentId, matchIds: ids, refereeId: refId });
+      } else {
+        const res = await fetch(`${API_URL}/api/matches/assign-referee-bulk`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId, matchIds: ids, refereeId: refId }),
+        });
+        if (!res.ok) throw new Error((await res.json())?.error || 'Błąd serwera');
+        out = await res.json();
+      }
+
+      const { updated = 0, skipped = [] } = out || {};
+      if (updated) toast.success(`Zaktualizowano sędziego w ${updated} meczach.`);
+      if (skipped?.length) toast.warn(`Pominięto ${skipped.length} meczów (sędzia nie może być zawodnikiem w meczu).`);
+      await fetchForTab();
+      // nie czyścimy wyboru, żeby można było poprawić
+    } catch (e) {
+      toast.error(e.message || 'Błąd masowego przypisania sędziego');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  /* ============================================================================
+   *  MODAL PAROWANIA KO
+   * ========================================================================== */
 
   // zamykanie list w modalu po kliknięciu poza
   useEffect(() => {
@@ -520,44 +478,42 @@ export default function TournamentMatches({ roles: rolesProp }) {
     }
   };
 
-  const toggleLock = async (match) => {
-    try {
-      const upd = await matchService.setLocked(match.id, !match.locked);
-      setMatches(prev => prev.map(m => (m.id === match.id ? upd : m)));
-      toast.success(upd.locked ? 'Mecz zablokowany' : 'Mecz odblokowany');
-    } catch (e) {
-      toast.error(e.message || 'Błąd blokowania meczu');
-    }
-  };
-
   /* ============================================================================
    *  RENDER
    * ========================================================================== */
 
   const renderMatch = (match) => {
-    const selectable = isTournyOrg && match.status !== 'finished';
-    const checked = selectedIds.has(match.id);
-
+    const isSelected = selected.has(match.id);
     return (
-      <div key={match.id} className="match-card">
-        <div className="match-info">
-          <span className="match-round">{match.round}</span>
-          <span className="match-category">
-            {match.category
-              ? `${match.category.gender === 'male' ? 'Mężczyźni' : 'Kobiety'} ${match.category.categoryName}`
-              : 'Brak kategorii'}
-          </span>
+      <div key={match.id} className={`match-card ${isSelected ? 'selected' : ''}`}>
+        <div className="match-card-top">
+          <label className="match-select">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleSelected(match.id)}
+            />
+            <span>Zaznacz</span>
+          </label>
 
-          {selectable && (
-            <label className="select-checkbox">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggleSelect(match.id)}
-                aria-label={`Zaznacz mecz ${match.id}`}
-              />
-            </label>
-          )}
+          <div className="match-info">
+            <span className="match-round">{match.round}</span>
+            <span className="match-category">
+              {match.category
+                ? `${match.category.gender === 'male' ? 'Mężczyźni' : 'Kobiety'} ${match.category.categoryName}`
+                : 'Brak kategorii'}
+            </span>
+          </div>
+
+          <div className="match-referee">
+            {match.referee ? (
+              <span className="ref-pill" title={`ID: ${match.referee.id}`}>
+                Sędzia: {match.referee.name} {match.referee.surname}
+              </span>
+            ) : (
+              <span className="ref-none">Brak sędziego</span>
+            )}
+          </div>
         </div>
 
         <div className="match-players">
@@ -570,12 +526,6 @@ export default function TournamentMatches({ roles: rolesProp }) {
           </div>
         </div>
 
-        {match.referee && (
-          <div className="referee-line">
-            Sędzia: {match.referee.name} {match.referee.surname}
-          </div>
-        )}
-
         <div className="match-status">
           {match.status === 'scheduled' && 'Zaplanowany'}
           {match.status === 'in_progress' && <span className="live-pill">W trakcie • LIVE</span>}
@@ -584,6 +534,14 @@ export default function TournamentMatches({ roles: rolesProp }) {
             : (match.status === 'finished' ? 'Zakończony' : null)}
         </div>
 
+        {isKO(match.round) && match.status !== 'finished' && (
+          <div className="ko-tools">
+            <button className="btn-secondary" onClick={() => openPairingModal(match)}>
+              Ustaw parę
+            </button>
+          </div>
+        )}
+
         {match.matchSets?.length > 0 && (
           <div className="match-score">
             <div className="match-score-sets">
@@ -591,33 +549,9 @@ export default function TournamentMatches({ roles: rolesProp }) {
             </div>
           </div>
         )}
-
-        {(match.status === 'scheduled' || match.status === 'in_progress') && canScore(match) && (
-          <button
-            onClick={() => navigate(`/match-score-panel/${match.id}`)}
-            className="score-input-btn"
-          >
-            Wprowadź wynik
-          </button>
-        )}
-
-        {/* Narzędzia KO: tylko organizator */}
-        {isTournyOrg && isKO(match.round) && match.status === 'scheduled' && !match.locked && (
-          <div className="ko-tools">
-            <button className="btn-secondary" onClick={() => openPairingModal(match)}>Ustaw parę</button>
-          </div>
-        )}
-        {isTournyOrg && isKO(match.round) && match.status !== 'finished' && (
-          <div className="ko-tools">
-            <button className="btn-secondary" onClick={() => toggleLock(match)}>
-              {match.locked ? 'Odblokuj' : 'Zablokuj'}
-            </button>
-          </div>
-        )}
       </div>
     );
   };
-
 
   const sortedRounds = useMemo(() => {
     const keys = Object.keys(visibleGroups);
@@ -628,11 +562,9 @@ export default function TournamentMatches({ roles: rolesProp }) {
       const indexB = typeB ? ROUND_ORDER.indexOf(typeB) : 999;
       return indexA === indexB ? a.localeCompare(b) : indexA - indexB;
     });
-  }, [visibleGroups])
+  }, [visibleGroups]);
 
-  /* ============================================================================
-   *  JSX
-   * ========================================================================== */
+  const anySelected = selected.size > 0;
 
   return (
     <section className="matches-section">
@@ -641,92 +573,52 @@ export default function TournamentMatches({ roles: rolesProp }) {
           <h2 className="section-title">Mecze turnieju</h2>
         </div>
 
-        {/* Panel akcji zbiorczych – tylko dla organizatora */}
-        {isTournyOrg && (
-          <div className="bulk-toolbar">
-            <div className="bulk-buttons">
-              <button className="btn-secondary" onClick={selectAllVisible}>Zaznacz widoczne</button>
-              <button className="btn-secondary" onClick={clearSelection}>Wyczyść</button>
-            </div>
-
-            <div className="bulk-assign">
-              <div className="combo" ref={comboRef}>
-                <input
-                  className="combo-input"
-                  placeholder="Wpisz nazwisko/e-mail sędziego…"
-                  value={refSearch}
-                  onChange={(e) => { setRefSearch(e.target.value); setBulkRefereeId(''); setSelectedRef(null); setRefOpen(true); }}
-                  onFocus={() => setRefOpen(true)}
-                />
-                {bulkRefereeId && (
-                  <button
-                    type="button"
-                    className="combo-clear"
-                    aria-label="Wyczyść wybór"
-                    onClick={() => { setBulkRefereeId(''); setSelectedRef(null); setRefSearch(''); }}
-                  >
-                    ×
-                  </button>
-                )}
-                {refOpen && (
-                  <ul className="combo-list">
-                    {refLoading ? (
-                      <li className="muted">Szukam…</li>
-                    ) : refResults.length ? (
-                      refResults.map(u => (
-                        <li key={u.id} onMouseDown={() => pickReferee(u)}>
-                          {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="muted">{refSearch.trim() ? 'Brak wyników' : 'Zacznij pisać, aby wyszukać'}</li>
-                    )}
-                  </ul>
-                )}
-              </div>
-
-              <button
-                className="btn-primary"
-                disabled={!bulkRefereeId || selectedIds.size === 0}
-                onClick={handleBulkAssign}
-                title={!bulkRefereeId ? 'Wybierz sędziego' : (selectedIds.size === 0 ? 'Zaznacz mecze' : 'Przydziel')}
-              >
-                Przydziel sędziego ({selectedIds.size})
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* KO toolbar */}
-        {isTournyOrg && (
-          <div className="ko-toolbar">
-            <div className="ko-row">
-              <strong>Zasiew KO:</strong>
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={overwrite}
-                  onChange={(e) => setOverwrite(e.target.checked)}
-                />
-                Nadpisz istniejące pary
-              </label>
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={avoidSameGroup}
-                  onChange={(e) => setAvoidSameGroup(e.target.checked)}
-                />
-                Unikaj tej samej grupy (A1 ≠ A2)
-              </label>
+        <div className="ko-toolbar">
+          {settings?.format === 'GROUPS_KO' ? (
+            <>
+              <div className="ko-row">
+                <button
+                  className="btn-primary"
+                  onClick={handleGenerateGroups}
+                  disabled={hasGroupMatches || resetBusy}
+                  title={hasGroupMatches ? 'Najpierw usuń mecze grupowe' : 'Generuj grupy + szkielet KO'}
+                >
+                  Generuj grupy + KO (szkielet)
+                </button>
 
-              <button className="btn-secondary" onClick={handleSeedPreset}>
-                Zasiej wg schematu
-              </button>
-              <button className="btn-primary" onClick={handleSeedRandom}>
-                Zasiej losowo
+                <button className="btn-primary" onClick={handleSeedKO}>
+                  Zasiej KO (wg ustawień)
+                </button>
+
+                <label className="chk" style={{ marginLeft: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={alsoKO}
+                    onChange={(e) => setAlsoKO(e.target.checked)}
+                  />
+                  Usuń też mecze KO
+                </label>
+
+                <button
+                  className="btn-danger"
+                  onClick={handleResetGroups}
+                  disabled={!matches.length || resetBusy}
+                  title={!matches.length ? 'Brak meczów do usunięcia' : 'Usuń wszystkie mecze grupowe (i opcjonalnie KO)'}
+                >
+                  {resetBusy ? 'Usuwam…' : 'Usuń mecze grupowe'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="ko-row">
+              <button className="btn-primary" onClick={handleGenerateKOOnly}>
+                Generuj KO (bez grup)
               </button>
             </div>
+          )}
 
+          {availableResetRounds.length > 0 && (
             <div className="ko-row">
               <strong>Reset KO od rundy:</strong>
               <select
@@ -734,21 +626,58 @@ export default function TournamentMatches({ roles: rolesProp }) {
                 onChange={(e) => setResetFrom(e.target.value)}
                 className="select"
               >
-                <option value="1/64">1/64 finału</option>
-                <option value="1/32">1/32 finału</option>
-                <option value="1/16">1/16 finału</option>
-                <option value="1/8">1/8 finału</option>
-                <option value="Ćwierćfinał">Ćwierćfinał</option>
-                <option value="Półfinał">Półfinał</option>
-                <option value="Finał">Finał</option>
+                {availableResetRounds.map(r => (
+                  <option key={r} value={r}>
+                    {(r === '1/64' || r === '1/32' || r === '1/16' || r === '1/8') ? `${r} finału` : r}
+                  </option>
+                ))}
               </select>
-
               <button className="btn-danger" onClick={handleResetKO}>
                 Resetuj od tej rundy
               </button>
             </div>
+          )}
+        </div>
+
+        {/* BULK toolbar */}
+        <div className="bulk-toolbar">
+          <div className="bulk-row">
+            <button className="btn-secondary" onClick={selectAllVisible}>
+              Zaznacz widoczne
+            </button>
+            <button className="btn-secondary" onClick={clearSelection} disabled={!anySelected}>
+              Wyczyść wybór
+            </button>
+
+            <div className="bulk-referee">
+              <label>
+                ID sędziego:{' '}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="input"
+                  placeholder="puste = usuń"
+                  value={bulkRefereeId}
+                  onChange={(e) => setBulkRefereeId(e.target.value)}
+                  style={{ width: 120 }}
+                />
+              </label>
+              <button
+                className="btn-primary"
+                onClick={handleBulkAssign}
+                disabled={bulkBusy || !anySelected}
+                title="Przypisz/Usuń sędziego w zaznaczonych meczach"
+                style={{ marginLeft: 8 }}
+              >
+                {bulkBusy ? 'Aktualizuję…' : 'Przypisz do zaznaczonych'}
+              </button>
+            </div>
+
+            {anySelected && (
+              <span className="bulk-counter">Wybrane mecze: {selected.size}</span>
+            )}
           </div>
-        )}
+        </div>
       </header>
 
       <div className="tabs-container">
@@ -771,7 +700,22 @@ export default function TournamentMatches({ roles: rolesProp }) {
         <div className="matches-list">
           {sortedRounds.map(roundName => (
             <div key={roundName} className="match-group-section">
-              <h3>{roundName}</h3>
+              <h3>
+                {roundName}{' '}
+                <button
+                  className="btn-link"
+                  onClick={() => {
+                    const ids = (visibleGroups[roundName] || []).map(m => m.id);
+                    setSelected(prev => {
+                      const next = new Set(prev);
+                      ids.forEach(id => next.add(id));
+                      return next;
+                    });
+                  }}
+                >
+                  (zaznacz tę sekcję)
+                </button>
+              </h3>
               {visibleGroups[roundName].map(renderMatch)}
             </div>
           ))}
@@ -780,7 +724,7 @@ export default function TournamentMatches({ roles: rolesProp }) {
         <p>Brak meczów w tej kategorii.</p>
       )}
 
-      {/* Modal: ręczne parowanie KO (tylko dopuszczeni) */}
+      {/* Modal: ręczne parowanie KO */}
       {pairingOpen && (
         <div className="pair-modal__backdrop" role="dialog" aria-modal="true">
           <div className="pair-modal__card">
