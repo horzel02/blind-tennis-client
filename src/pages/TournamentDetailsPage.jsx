@@ -51,6 +51,10 @@ export default function TournamentDetailsPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const refreshRoles = useCallback(async () => {
+    try { setRoles(await roleService.listRoles(tournament.id)); } catch { }
+  }, [tournament?.id]);
+
   const fetchMyRegistration = useCallback(() => {
     if (!tournament || !user) {
       setCheckingReg(false);
@@ -232,7 +236,7 @@ export default function TournamentDetailsPage() {
     try {
       await matchService.generateTournamentStructure(id);
       toast.success('Mecze wygenerowane pomyślnie!');
-      window.location.reload(); 
+      window.location.reload();
     } catch (err) {
       toast.error(err.message || 'Wystąpił błąd podczas generowania meczów.');
     }
@@ -241,8 +245,6 @@ export default function TournamentDetailsPage() {
   const organizerIds = new Set(
     roles.filter(r => r.role === 'organizer').map(r => r.user.id)
   );
-
-  const renderChip = (text) => <span className="chip">{text}</span>;
 
   const renderProgressBar = (current, total) => {
     const pct = total ? Math.round((current / total) * 100) : 0;
@@ -253,6 +255,63 @@ export default function TournamentDetailsPage() {
       </div>
     );
   };
+
+  // ------ GENDER chips z fallbackiem ------
+
+  // mapowanie na skróty M / W / Coed (obsługa różnych wariantów)
+  const normGender = (g) => {
+    if (!g) return null;
+    const s = String(g).trim().toLowerCase();
+    if (['m', 'male', 'mężczyźni', 'mezczyzni'].includes(s)) return 'M';
+    if (['w', 'female', 'kobiety', 'f'].includes(s)) return 'W';
+    if (['coed', 'mixed', 'mix'].includes(s)) return 'Coed';
+    // jeśli już jest 'M' / 'W' / 'Coed'
+    if (['m', 'w', 'coed'].includes(s)) return s === 'm' ? 'M' : s === 'w' ? 'W' : 'Coed';
+    return String(g);
+  };
+
+  // wylicz chip(y) płci: najpierw bierzemy t.gender, a jak nie ma — z kategorii
+  const computeGenderChips = (t) => {
+    if (!t) return [];
+    if (t.gender) return [normGender(t.gender)].filter(Boolean);
+
+    // fallback: z kategorii (jeśli mają gender)
+    if (Array.isArray(t.categories) && t.categories.length) {
+      const set = new Set(
+        t.categories
+          .map((c) => (typeof c === 'string' ? null : normGender(c?.gender)))
+          .filter(Boolean)
+      );
+      if (set.size === 0) return [];
+      // jeśli są i M, i W → Coed
+      if (set.has('M') && set.has('W')) return ['Coed'];
+      return Array.from(set);
+    }
+    return [];
+  };
+
+  // (jeśli jeszcze nie masz) helper do kategorii:
+  const getCategoryChips = (t) => {
+    if (!t) return [];
+    if (Array.isArray(t.categories) && t.categories.length) {
+      return t.categories
+        .map((c) =>
+          typeof c === 'string'
+            ? c
+            : (c?.categoryName ?? c?.name ?? c?.label ?? '')
+        )
+        .filter(Boolean);
+    }
+    return t.category ? [t.category] : [];
+  };
+
+  const renderChip = (text) => (text ? <span className="chip">{text}</span> : null);
+
+  // policz wartości do renderu
+  const categoryChips = getCategoryChips(tournament);
+  const genderChips = computeGenderChips(tournament);
+
+
 
   function MapPreview({ address }) {
     const src = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
@@ -276,8 +335,12 @@ export default function TournamentDetailsPage() {
           <h1 className="details-title">{name}</h1>
           {description && <p className="details-description">{description}</p>}
           <div className="chips">
-            {renderChip(category)}
-            {renderChip(gender)}
+            {categoryChips.map((txt, i) => (
+              <span key={`cat-${i}-${txt}`} className="chip">{txt}</span>
+            ))}
+            {genderChips.map((txt, i) => (
+              <span key={`gender-${i}-${txt}`} className="chip">{txt}</span>
+            ))}
           </div>
           <p className="icon-label">
             <Clock size={16} /> {new Date(start_date).toLocaleDateString()} –{' '}
@@ -451,8 +514,9 @@ export default function TournamentDetailsPage() {
         isOpen={isRefereeModalOpen}
         onClose={() => setRefereeModalOpen(false)}
         tournamentId={tournament.id}
+        onChanged={refreshRoles}
       />
-      
+
       <GroupStandings tournamentId={tournament.id} isOrganizer={isCreator || isTournyOrg} />
 
 

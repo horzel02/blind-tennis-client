@@ -285,3 +285,50 @@
 .pairing-list li + li{ border-top: 1px solid #f2f2f2; }
 .pairing-list li:hover{ background: #f9fafb; }
 .pairing-list .muted{ color: #9ca3af; cursor: default; }
+
+/* pozwól elementom "wystawać" z karty i body modału */
+.pair-modal__card,
+.pair-modal__body {
+  overflow: visible;
+}
+
+/* combobox jako kotwica dla listy */
+.pairing-combo {
+  position: relative;
+  overflow: visible;
+}
+
+/* sama lista jako absolutny overlay o dużym z-index */
+.pairing-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  z-index: 10000;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  padding: 6px 0;
+}
+
+.pairing-list li {
+  padding: 8px 12px;
+}
+
+/* mini-warning pod inputem */
+.pairing-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #b45309; /* bursztyn */
+}
+
+
+.pairing-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: #b45309; /* bursztyn / amber-700 */
+}

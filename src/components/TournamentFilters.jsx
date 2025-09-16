@@ -1,12 +1,13 @@
 // client/src/components/TournamentFilters.jsx
 import React from 'react';
 import '../styles/tournamentFilters.css';
+import { genderLabelPL } from '../utils/tournamentMeta';
 
 export default function TournamentFilters({
   filters,
   setFilters,
-  categories,
-  genders,
+  categories,   // np. ['B1','B2','B3','B4']
+  genders,      // KANONICZNE: ['M','W','Coed']
   isMobileOffCanvas
 }) {
   const handleCheckboxChange = (e) => {
@@ -57,11 +58,11 @@ export default function TournamentFilters({
             <input
               type="checkbox"
               name="gender"
-              value={g}
+              value={g}                    // <- wartości 'M','W','Coed'
               checked={filters.gender.includes(g)}
               onChange={handleCheckboxChange}
             />
-            {g}
+            {genderLabelPL(g)}            {/* ładna etykieta */}
           </label>
         ))}
       </fieldset>
@@ -81,12 +82,10 @@ export default function TournamentFilters({
         </label>
       </fieldset>
 
-      {/* Zakres daty rozpoczęcia */}
+      {/* Data od/do */}
       <fieldset className="filter-group">
         <legend>Data od/do</legend>
-
         <div className="date-range">
-          {/* Pole „Data od” */}
           <div className="filter-item">
             <label htmlFor="dateFrom">
               <span className="date-label">Od:</span>
@@ -99,8 +98,6 @@ export default function TournamentFilters({
               />
             </label>
           </div>
-
-          {/* Data do */}
           <div className="filter-item">
             <label htmlFor="dateTo">
               <span className="date-label">Do:</span>

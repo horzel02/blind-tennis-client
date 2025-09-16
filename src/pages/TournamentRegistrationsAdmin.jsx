@@ -299,7 +299,7 @@ export default function TournamentRegistrationsAdmin() {
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
     { label: 'Turnieje', href: '/tournaments' },
-    { label: tournament?.name ?? 'Ładowanie nazwy turnieju...', href: `/tournaments/${id}` },
+    { label: tournament?.name ?? 'Ładowanie nazwy turnieju...', href: `/tournaments/${id}/details` },
     { label: 'Zarządzanie zgłoszeniami' }
   ];
 

@@ -104,15 +104,6 @@ export async function updateMatchScore(matchId, updateData) {
   });
 }
 
-/** Ustaw sędziego (pojedynczy mecz) */
-export async function setMatchReferee(matchId, refereeId) {
-  return jfetch(`${MATCHES_API}/${matchId}/referee`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refereeId }),
-  });
-}
-
 /** Ręczne ustawienie pary w meczu KO */
 export async function setPairing(matchId, { player1Id, player2Id }) {
   return jfetch(`${MATCHES_API}/${matchId}/pairing`, {
@@ -137,15 +128,27 @@ export async function assignRefereeBulk({ tournamentId, matchIds, refereeId = nu
 
   const payload = {
     tournamentId: Number(tournamentId),
-    matchIds: matchIds.map(n => Number(n)).filter(Boolean),
+    matchIds: matchIds.map(Number).filter(Boolean),
     refereeId: (refereeId === '' || refereeId === undefined) ? null : Number(refereeId),
   };
 
-  return jfetch(`${MATCHES_API}/assign-referee-bulk`, {
-    method: 'POST',
+  // kluczowe: właściwy endpoint i metoda
+  return jfetch(`${MATCHES_API}/referee/bulk`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+export async function generateKnockoutSkeleton(tournamentId) {
+  return jfetch(`${API_BASE_URL}/tournaments/${tournamentId}/generate-ko-skeleton`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export async function getEligiblePlayersForMatch(matchId) {
+  return jfetch(`${MATCHES_API}/${matchId}/eligible`);
 }
 
 // (opcjonalnie, żeby nie zmieniać importów w komponentach)

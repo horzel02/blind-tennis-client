@@ -10,6 +10,7 @@
 }
 
 .content-with-filters {
+  align-items: flex-start;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -22,14 +23,19 @@
 }
 
 .tournament-grid {
-  flex: 1;
+  /* wypełnij całą kolumnę obok sidebaru */
+  flex: 1 1 0%;
+  min-width: 0;
+
   display: grid;
-  /* Kluczowa zmiana: dynamiczne kolumny z centrowaniem */
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* auto-fit zamiast auto-fill, minmax dla szerokości karty */
-  gap: 1.5rem; /* Odstęp między kartami */
-  justify-content: center; /* Centruj kolumny w siatce */
-  padding: 0 0.5rem; /* Lekki padding po bokach, aby karty nie dotykały krawędzi */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+
+  /* porządek w osi blokowej */
+  align-items: start;
+  /* NIE trzeba justify-content w gridzie z 1fr, bo kolumny i tak wypełniają wiersz */
 }
+
 
 /* ========================================================================== */
 /* 2. CONTROLS BAR: nagłówek z wyszukaj / sort / reset / przycisk filtrów     */

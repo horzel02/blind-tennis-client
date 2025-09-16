@@ -1,10 +1,6 @@
 // client/src/services/tournamentService.js
-const API_BASE_URL = (import.meta?.env?.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : 'http://localhost:5000/api');
-
-const MATCHES_API     = `${API_BASE_URL}/matches`;
-const TOURNAMENTS_API = `${API_BASE_URL}/tournaments`;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const TOURNAMENTS_API = `${API_BASE_URL}/api/tournaments`;
 
 async function jfetch(url, opts = {}) {
   const res = await fetch(url, { credentials: 'include', ...opts });
@@ -51,11 +47,17 @@ export async function deleteTournament(id) {
 }
 
 export async function addParticipant(tournamentId, userId) {
-  return jfetch(`${TOURNAMENTS_API}/${tournamentId}/participants`, {
+  const res = await fetch(`${TOURNAMENTS_API}/${tournamentId}/participants`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ userId }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || 'Błąd dodawania zawodnika');
+  }
+  return res.json();
 }
 
 /* ----- SETTINGS ----- */

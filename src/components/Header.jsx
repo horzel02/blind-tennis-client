@@ -28,7 +28,7 @@ export default function Header() {
     try {
       await logout();
       setSidebarOpen(false);
-      navigate('/', { replace: true });
+      window.location.replace('/');
       toast.success('Wylogowano pomyślnie');
     } catch (err) {
       console.error(err);

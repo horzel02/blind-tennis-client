@@ -1,108 +1,107 @@
+// client/src/components/AssignRefereeModal.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import InvitePlayerModal from './InvitePlayerModal';
-import * as matchService from '../services/matchService';
 import * as roleService from '../services/tournamentUserRoleService';
 
-export default function AssignRefereeModal({ isOpen, onClose, tournamentId }) {
-  const [matches, setMatches] = useState([]);
-  const [selectedMatchId, setSelectedMatchId] = useState(null);
-
+export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onChanged }) {
   const [roles, setRoles] = useState([]);
-  const refereeIds = useMemo(
-    () => new Set(roles.filter(r => r.role === 'referee').map(r => r.user.id)),
-    [roles]
-  );
-
-  const [pickOpen, setPickOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pickOpen, setPickOpen] = useState(false);
+
+  const refereeRoles = useMemo(() => roles.filter(r => r.role === 'referee'), [roles]);
+  const refereeIds = useMemo(() => new Set(refereeRoles.map(r => r.user.id)), [refereeRoles]);
+
+  async function load() {
+    try {
+      setLoading(true);
+      const r = await roleService.listRoles(tournamentId);
+      setRoles(r || []);
+    } catch (e) {
+      toast.error(e.message || 'Błąd ładowania ról');
+      setRoles([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) return;
-    (async () => {
-      try {
-        setLoading(true);
-        const [list, r] = await Promise.all([
-          matchService.getMatchesByTournamentId(tournamentId),
-          roleService.listRoles(tournamentId),
-        ]);
-        const filt = list.filter(m => m.status !== 'finished'); // nie pokazuj zakończonych
-        setMatches(filt);
-        setSelectedMatchId(filt[0]?.id ?? null);
-        setRoles(r);
-      } catch (e) {
-        toast.error(e.message || 'Błąd ładowania danych');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
   }, [isOpen, tournamentId]);
 
-  const handleSelectUser = async (u) => {
-    if (!selectedMatchId) return toast.error('Wybierz mecz');
+  const handleAddReferee = async (u) => {
     try {
-      await matchService.setMatchReferee(selectedMatchId, u.id);
-      toast.success(`Przypisano sędziego: ${u.name} ${u.surname}`);
+      await roleService.addRole(tournamentId, u.id, 'referee');
+      toast.success(`Dodano sędziego: ${u.name} ${u.surname}`);
       setPickOpen(false);
-      onClose?.();
+      await load();
+      onChanged?.();
     } catch (e) {
-      toast.error(e.message);
+      toast.error(e.message || 'Nie udało się dodać roli sędziego');
     }
   };
 
-  const handleClear = async () => {
-    if (!selectedMatchId) return;
+  const handleRemoveReferee = async (userId) => {
+    if (!window.confirm('Usunąć tego sędziego z turnieju?')) return;
     try {
-      await matchService.setMatchReferee(selectedMatchId, null);
-      toast.success('Sędziego usunięto z meczu');
-      onClose?.();
+      await roleService.removeRole(tournamentId, userId, 'referee');
+      toast.success('Usunięto sędziego');
+      await load();
+      onChanged?.();
     } catch (e) {
-      toast.error(e.message);
+      toast.error(e.message || 'Nie udało się usunąć roli sędziego');
     }
   };
 
   if (!isOpen) return null;
+
   return (
     <div className="modal-backdrop">
       <div className="modal-content">
-        <h2>Przydziel sędziego</h2>
+        <h2>Zarządzaj sędziami turnieju</h2>
 
         {loading ? (
           <p>Ładowanie…</p>
         ) : (
           <>
-            <label className="form-group" style={{ display: 'block', marginBottom: 12 }}>
-              <span>Mecz</span>
-              <select
-                value={selectedMatchId ?? ''}
-                onChange={e => setSelectedMatchId(parseInt(e.target.value, 10))}
-                className="modal-input"
-              >
-                {matches.map(m => (
-                  <option key={m.id} value={m.id}>
-                    #{m.id} — {m.round}: {m.player1 ? `${m.player1.name} ${m.player1.surname}` : 'TBD'} vs {m.player2 ? `${m.player2.name} ${m.player2.surname}` : 'TBD'} {m.referee ? ` (sędzia: ${m.referee.name} ${m.referee.surname})` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12 }}>
+              <strong>Aktualni sędziowie</strong>
+              <button className="btn btn-primary" onClick={() => setPickOpen(true)}>
+                Dodaj sędziego
+              </button>
+            </div>
 
-            <div className="modal-actions">
+            {refereeRoles.length === 0 ? (
+              <p className="muted">Brak sędziów w tym turnieju.</p>
+            ) : (
+              <ul style={{ listStyle:'none', padding:0, margin:0 }}>
+                {refereeRoles.map(r => (
+                  <li key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid #eee' }}>
+                    <span>
+                      {r.user.name} {r.user.surname}{r.user.email ? ` (${r.user.email})` : ''}
+                    </span>
+                    <button className="btn btn-delete" onClick={() => handleRemoveReferee(r.user.id)}>
+                      Usuń
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="modal-actions" style={{ marginTop: 16 }}>
               <button className="btn btn-secondary" onClick={onClose}>Zamknij</button>
-              <button className="btn btn-delete" onClick={handleClear}>Usuń sędziego</button>
-              <button className="btn btn-primary" onClick={() => setPickOpen(true)}>Wybierz sędziego</button>
             </div>
           </>
         )}
 
-        {/* Picker użytkownika – korzystamy z Twojego InvitePlayerModal,
-            ale filtrujemy do osób z rolą 'referee' w tym turnieju */}
         <InvitePlayerModal
           isOpen={pickOpen}
           onClose={() => setPickOpen(false)}
-          existingIds={refereeIds /* <- pokaże tylko userów z tą rolą */ }
-          title="Wybierz sędziego (mających rolę referee)"
+          existingIds={refereeIds}
+          title="Dodaj sędziego do turnieju"
           placeholder="Szukaj po nazwisku lub e-mailu…"
-          onSelectUser={handleSelectUser}
+          onSelectUser={handleAddReferee}
         />
       </div>
     </div>

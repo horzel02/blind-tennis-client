@@ -2,17 +2,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/tournamentCard.css';
+import {
+  getCategoryChips,
+  getGenderChips,
+  genderLabelPL,
+} from '../utils/tournamentMeta';
 
 export default function TournamentCard({ tournament }) {
   const navigate = useNavigate();
-  const { id, name, start_date, end_date, city, applicationsOpen, categories } = tournament;
+  const { id, name, start_date, end_date, city, applicationsOpen } = tournament;
 
-  const cat = categories && categories.length ? categories[0] : null;
-  const genderLabel =
-    cat?.gender === 'male' ? 'Mężczyźni' :
-    cat?.gender === 'female' ? 'Kobiety' :
-    cat?.gender ? cat.gender : '—';
-  const catLabel = cat?.categoryName || '—';
+  // bierzemy „pierwsze sensowne” wartości na kartę (na liście zwykle wystarczą)
+  const catChips = getCategoryChips(tournament);
+  const genderChips = getGenderChips(tournament);
+  const catLabel = catChips[0] || '—';
+  const genderLabel = genderChips.length ? genderLabelPL(genderChips[0]) : '—';
 
   return (
     <article className="card" tabIndex="0" role="region" aria-labelledby={`tour-${id}-title`}>

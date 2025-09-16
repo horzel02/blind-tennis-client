@@ -23,14 +23,15 @@ export async function login(data) {
     credentials: 'include',
     body: JSON.stringify(data),
   });
+
+  const payload = await res.json();
+
   if (!res.ok) {
-    const errorData = await res.json();
-    const error = new Error(errorData.message || 'Logowanie nieudane.');
+    const error = new Error(payload.message || 'Logowanie nieudane.');
     error.status = res.status;
     throw error;
   }
-
-  return res.json();
+  return payload.user ?? payload;
 }
 
 export async function logout() {
