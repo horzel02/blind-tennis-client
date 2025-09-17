@@ -118,6 +118,29 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     [user, isTournyReferee]
   );
 
+  useEffect(() => {
+    const s = socketRef.current;
+    if (!s) return;
+
+    const now = new Set(matches.map(m => m.id));
+
+    // dołącz do nowych pokoi
+    for (const mid of now) {
+      if (!joinedRoomsRef.current.has(mid)) {
+        s.emit('join-match', mid);
+        joinedRoomsRef.current.add(mid);
+      }
+    }
+    // opuść pokoje, których już nie ma na liście
+    for (const mid of [...joinedRoomsRef.current]) {
+      if (!now.has(mid)) {
+        s.emit('leave-match', mid);
+        joinedRoomsRef.current.delete(mid);
+      }
+    }
+  }, [matches]);
+
+
   // ustawienia
   useEffect(() => {
     let alive = true;
@@ -261,12 +284,23 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     };
 
     const onLive = ({ matchId, sets }) => {
-      setMatches((prev) =>
-        prev.map((m) =>
-          m.id === matchId
-            ? { ...m, matchSets: sets.map((sset, i) => ({ ...sset, setNumber: i + 1 })) }
-            : m
-        )
+      setMatches(prev =>
+        prev.map(m => {
+          if (m.id !== matchId) return m;
+
+          const incoming = Array.isArray(sets) && sets.length
+            ? sets
+            : [{ p1: 0, p2: 0 }]; // <-- pokaż 0-0 od razu, zanim ktoś wpisze punkt
+
+          return {
+            ...m,
+            matchSets: incoming.map((s, i) => ({
+              setNumber: i + 1,
+              player1Score: Number(s.player1Score ?? s.player1 ?? s.p1 ?? 0),
+              player2Score: Number(s.player2Score ?? s.player2 ?? s.p2 ?? 0),
+            })),
+          };
+        })
       );
     };
 
@@ -298,6 +332,21 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   useEffect(() => {
     setGroupedMatches(groupMatchesByRound(matches));
   }, [matches, groupMatchesByRound]);
+
+
+  function resultBadge(m) {
+    if (m.status !== 'finished') return null;
+    if (!m.resultType || m.resultType === 'NORMAL') return null;
+
+    const map = {
+      WALKOVER: 'Walkower',
+      DISQUALIFICATION: 'Dyskwalifikacja',
+      RETIREMENT: 'Krecz',
+    };
+    const label = map[m.resultType] || m.resultType;
+    const w = m.winner ? ` – ${m.winner.name} ${m.winner.surname}` : '';
+    return <span className="badge badge-warning">{label}{w}</span>;
+  }
 
   /* ============================================================================
    *  AKCJE: GENERATORY / SEED / RESET
@@ -651,14 +700,15 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
         <div className="match-status">
           {match.status === 'scheduled' && 'Zaplanowany'}
-          {match.status === 'in_progress' && (
-            <span className="live-pill">W trakcie • LIVE</span>
-          )}
+          {match.status === 'in_progress' && <span className="live-pill">W trakcie • LIVE</span>}
           {match.status === 'finished' &&
             (match.winner
               ? `Zwycięzca: ${match.winner.name} ${match.winner.surname}`
               : 'Zakończony')}
+          {' '}
+          {resultBadge(match)}
         </div>
+
 
         {/* Przycisk do panelu wyniku – tylko dla sędziego tego meczu */}
         {showScoreBtn && (

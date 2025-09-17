@@ -114,9 +114,19 @@ export default function TournamentBracket() {
 
         const onLive = ({ matchId, sets }) => {
             setAllMatches(prev =>
-                prev.map(m => m.id === matchId
-                    ? { ...m, matchSets: sets.map((sset, i) => ({ ...sset, setNumber: i + 1 })) }
-                    : m
+                prev.map(m =>
+                    m.id === matchId
+                        ? {
+                            ...m,
+                            matchSets: Array.isArray(sets)
+                                ? sets.map((s, i) => ({
+                                    setNumber: i + 1,
+                                    player1Score: Number(s.player1Score ?? s.player1 ?? s.p1 ?? 0),
+                                    player2Score: Number(s.player2Score ?? s.player2 ?? s.p2 ?? 0),
+                                }))
+                                : [],
+                        }
+                        : m
                 )
             );
         };
