@@ -1,10 +1,7 @@
 // client/src/pages/TournamentDetailsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Clock, MapPin, Users,
-  Calendar, Share2, Download
-} from 'lucide-react';
+import { Clock, MapPin, Users, Calendar, Share2, Download } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import InvitePlayerModal from '../components/InvitePlayerModal';
 import '../styles/tournamentDetails.css';
@@ -18,10 +15,8 @@ import TournamentMatches from '../components/TournamentMatches';
 import AssignRefereeModal from '../components/AssignRefereeModal';
 import GroupStandings from '../components/GroupStandings';
 
-
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
 
 export default function TournamentDetailsPage() {
   const { user } = useAuth();
@@ -40,22 +35,29 @@ export default function TournamentDetailsPage() {
   const limit = Number(tournament?.participant_limit ?? Infinity);
   const capacityOK = acceptedCount < limit;
 
-
   const [isPlayerModalOpen, setPlayerModalOpen] = useState(false);
   const [isRoleModalOpen, setRoleModalOpen] = useState(false);
   const [roles, setRoles] = useState([]);
   const [isRefereeModalOpen, setRefereeModalOpen] = useState(false);
 
+  // ====== Fetch turnieju ======
   useEffect(() => {
     setLoading(true);
-    tournamentService.getTournamentById(id)
+    tournamentService
+      .getTournamentById(id)
       .then(setTournament)
-      .catch(err => setError(err.message))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
 
+  // ====== Role / rejestracja / accepted count ======
   const refreshRoles = useCallback(async () => {
-    try { setRoles(await roleService.listRoles(tournament.id)); } catch { }
+    try {
+      if (!tournament?.id) return;
+      setRoles(await roleService.listRoles(tournament.id));
+    } catch {
+      /* ignore */
+    }
   }, [tournament?.id]);
 
   const fetchMyRegistration = useCallback(() => {
@@ -64,8 +66,9 @@ export default function TournamentDetailsPage() {
       return;
     }
     setCheckingReg(true);
-    registrationService.getMyRegistration(tournament.id)
-      .then(reg => {
+    registrationService
+      .getMyRegistration(tournament.id)
+      .then((reg) => {
         if (reg) {
           setRegistrationStatus(reg.status);
           setRegistrationId(reg.id);
@@ -80,21 +83,20 @@ export default function TournamentDetailsPage() {
 
   const fetchAcceptedCount = useCallback(() => {
     if (!tournament) return;
-    registrationService.getAcceptedCount(tournament.id)
-      .then(setAcceptedCount)
-      .catch(console.error);
+    registrationService.getAcceptedCount(tournament.id).then(setAcceptedCount).catch(console.error);
   }, [tournament]);
 
   useEffect(() => {
     if (!tournament) return;
     fetchMyRegistration();
     fetchAcceptedCount();
-
-    roleService.listRoles(tournament.id)
+    roleService
+      .listRoles(tournament.id)
       .then(setRoles)
       .catch(() => setRoles([]));
   }, [tournament, fetchMyRegistration, fetchAcceptedCount]);
 
+  // ====== Guardy i pomocnicze ======
   if (loading) return <p>Ładowanie…</p>;
   if (error) return <p className="error">Błąd: {error}</p>;
   if (!tournament) return <p>Turniej nie znaleziono.</p>;
@@ -102,8 +104,6 @@ export default function TournamentDetailsPage() {
   const {
     name,
     description,
-    category,
-    gender,
     street,
     postalCode,
     city,
@@ -117,35 +117,114 @@ export default function TournamentDetailsPage() {
     organizer_id
   } = tournament;
 
-
   const isLoggedIn = Boolean(user);
   const isCreator = user?.id === organizer_id;
-  const isTournyOrg = roles.some(r =>
-    r.role === 'organizer' && r.user.id === user?.id
-  );
+  const isTournyOrg = roles.some((r) => r.role === 'organizer' && r.user.id === user?.id);
   const address = `${street}, ${postalCode} ${city}, ${country}`;
 
-const handleRegister = async () => {
-  // twarde stopery BEZ strzelania w API
-  if (!applicationsOpen) { toast.error('Zgłoszenia są zamknięte.'); return; }
-  if (!deadlineOK)       { toast.error('Termin rejestracji minął.'); return; }
-  if (!capacityOK)       { toast.error('Brak miejsc (limit osiągnięty).'); return; }
+  // ====== Normalizacja płci (frontendowa kopia) ======
+  const norm = (g) => {
+    if (!g) return null;
+    const s = String(g).trim().toLowerCase();
+    if (['m', 'male', 'men', 'man', 'mezczyzni', 'mężczyźni', 'mezczyzna', 'mężczyzna', 'm.'].includes(s)) return 'male';
+    if (['w', 'female', 'women', 'woman', 'kobiety', 'k', 'f', 'kobieta', 'k.'].includes(s)) return 'female';
+    if (['coed', 'mixed', 'mix', 'open'].includes(s)) return 'coed';
+    return null;
+  };
 
-  // Uwaga: płeć NIE blokuje tutaj, jeśli jej nie znamy – to zweryfikuje backend.
-  try {
-    const reg = await registrationService.createRegistration(tournament.id);
-    // odśwież status/listę itp.
-    toast.success('Zgłoszenie wysłane.');
-  } catch (err) {
-    const code = err?.payload?.code || err?.code;
-    if (code === 'GENDER_REQUIRED' || code === 'GENDER_MISMATCH') {
-      toast.error(err.message);
-    } else {
-      toast.error(err?.message || 'Nie udało się wysłać zgłoszenia.');
+  const genderPolish = (g) => (g === 'male' ? 'mężczyzn' : g === 'female' ? 'kobiet' : 'coed');
+  const userGenderLabel = (g) => (g === 'male' ? 'mężczyzna' : g === 'female' ? 'kobieta' : '—');
+
+  // User gender
+  const userGender = norm(user?.gender);
+
+  // Kategorie → profil płci turnieju
+  const catGendersSet = new Set((tournament?.categories || []).map((c) => norm(c?.gender)).filter(Boolean));
+  const hasCoed = catGendersSet.has('coed');
+  const sexSet = new Set([...catGendersSet].filter((g) => g === 'male' || g === 'female'));
+
+  // Jedna płeć → limit; dwie albo coed → open
+  const genderLimited = !hasCoed && sexSet.size === 1;
+  const requiredGender = genderLimited ? [...sexSet][0] : null;
+
+  // Rejestracja: deadline
+  const deadlineOK = (() => {
+    if (!registration_deadline) return true;
+    const end = new Date(registration_deadline);
+    end.setHours(23, 59, 59, 999);
+    return new Date() <= end;
+  })();
+
+  // Czy w ogóle można się rejestrować teraz (czas/miejsca)
+  const canRegisterNow = Boolean(applicationsOpen && deadlineOK && capacityOK);
+
+  // Prewalidacja płci (nie blokuj jeśli nie znamy płci usera – niech backend rozstrzygnie)
+  const canPrevalidate = !!userGender;
+  const genderConflict = genderLimited && canPrevalidate && userGender !== requiredGender;
+
+  // Chipsy (kategorie i płeć)
+  const normChip = (g) => {
+    const x = norm(g);
+    if (x === 'male') return 'M';
+    if (x === 'female') return 'W';
+    if (x === 'coed') return 'Coed';
+    return null;
+  };
+  const getCategoryChips = (t) => {
+    if (!t) return [];
+    if (Array.isArray(t.categories) && t.categories.length) {
+      return t.categories
+        .map((c) => (typeof c === 'string' ? c : c?.categoryName ?? c?.name ?? c?.label ?? ''))
+        .filter(Boolean);
     }
-  }
-};
+    return t.category ? [t.category] : [];
+  };
+  const computeGenderChips = (t) => {
+    if (!t) return [];
+    const set = new Set((t.categories || []).map((c) => normChip(c?.gender)).filter(Boolean));
+    if (set.has('Coed') || (set.has('M') && set.has('W'))) return ['Coed'];
+    return Array.from(set);
+  };
 
+  const categoryChips = getCategoryChips(tournament);
+  const genderChips = computeGenderChips(tournament);
+
+  // ====== Handlery ======
+  const handleRegister = async () => {
+    // twarde stopery BEZ API
+    if (!applicationsOpen) {
+      toast.error('Zgłoszenia są zamknięte.');
+      return;
+    }
+    if (!deadlineOK) {
+      toast.error('Termin rejestracji minął.');
+      return;
+    }
+    if (!capacityOK) {
+      toast.error('Brak miejsc (limit osiągnięty).');
+      return;
+    }
+
+    try {
+      await registrationService.createRegistration(tournament.id);
+      fetchMyRegistration();
+      fetchAcceptedCount();
+      toast.success('Zgłoszenie wysłane.');
+    } catch (err) {
+      const code = err?.payload?.code || err?.code || err?.response?.data?.code;
+      const msg =
+        err?.payload?.error ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Nie udało się wysłać zgłoszenia.';
+
+      if (code === 'GENDER_REQUIRED' || code === 'GENDER_MISMATCH') {
+        toast.error(msg);
+      } else {
+        toast.error(msg);
+      }
+    }
+  };
 
   const handleUnregister = async () => {
     if (!window.confirm('Wycofać zgłoszenie?')) return;
@@ -193,9 +272,7 @@ const handleRegister = async () => {
 
   const handleAcceptInvite = async () => {
     try {
-      const upd = await registrationService.updateRegistrationStatus(
-        registrationId, { status: 'accepted' }
-      );
+      const upd = await registrationService.updateRegistrationStatus(registrationId, { status: 'accepted' });
       setRegistrationStatus(upd.status);
       fetchAcceptedCount();
       toast.success('Zaproszenie przyjęte!');
@@ -203,6 +280,7 @@ const handleRegister = async () => {
       toast.error('Błąd przy akceptacji: ' + err.message);
     }
   };
+
   const handleDeclineInvite = async () => {
     if (!window.confirm('Odrzucić zaproszenie?')) return;
     try {
@@ -220,10 +298,9 @@ const handleRegister = async () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success('Link skopiowany!');
   };
+
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(tournament, null, 2)], {
-      type: 'application/json'
-    });
+    const blob = new Blob([JSON.stringify(tournament, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -233,6 +310,7 @@ const handleRegister = async () => {
     a.remove();
     URL.revokeObjectURL(url);
   };
+
   const handleDelete = async () => {
     if (!window.confirm('Na pewno usunąć turniej?')) return;
     try {
@@ -244,7 +322,11 @@ const handleRegister = async () => {
   };
 
   const handleGenerateMatches = async () => {
-    if (!window.confirm('Czy na pewno chcesz wygenerować mecze turnieju? Spowoduje to usunięcie wszystkich istniejących meczów!')) {
+    if (
+      !window.confirm(
+        'Czy na pewno chcesz wygenerować mecze turnieju? Spowoduje to usunięcie wszystkich istniejących meczów!'
+      )
+    ) {
       return;
     }
     try {
@@ -256,117 +338,21 @@ const handleRegister = async () => {
     }
   };
 
-  const organizerIds = new Set(
-    roles.filter(r => r.role === 'organizer').map(r => r.user.id)
-  );
+  const organizerIds = new Set(roles.filter((r) => r.role === 'organizer').map((r) => r.user.id));
 
   const renderProgressBar = (current, total) => {
     const pct = total ? Math.round((current / total) * 100) : 0;
     return (
       <div className="progress-bar" aria-label={`${current}/${total} uczestników`}>
         <div className="progress-fill" style={{ width: `${pct}%` }} />
-        <span className="progress-text">{current}/{total}</span>
+        <span className="progress-text">
+          {current}/{total || '∞'}
+        </span>
       </div>
     );
   };
 
-  // ------ GENDER chips + bramka wg kategorii ------
-
-  const norm = (g) => {
-    if (!g) return null;
-    const s = String(g).trim().toLowerCase();
-    if (['m', 'male', 'men', 'man', 'mezczyzni', 'mężczyźni', 'mezczyzna', 'mężczyzna'].includes(s)) return 'male';
-    if (['w', 'female', 'women', 'woman', 'kobiety', 'k', 'f', 'kobieta'].includes(s)) return 'female';
-    if (['coed', 'mixed', 'mix', 'open'].includes(s)) return 'coed';
-    return null;
-  };
-
-  const normChip = (g) => {
-    const x = norm(g);
-    if (x === 'male') return 'M';
-    if (x === 'female') return 'W';
-    if (x === 'coed') return 'Coed';
-    return null;
-  };
-
-  const { gender: userGenderRaw } = user || {};
-  const userGender = norm(userGenderRaw);
-
-  const catGenders = new Set(
-    (tournament?.categories || [])
-      .map(c => norm(c?.gender))
-      .filter(Boolean)
-  );
-
-  const hasCoed = catGenders.has('coed');
-  const sexSet = new Set([...catGenders].filter(g => g === 'male' || g === 'female'));
-
-  // frontendowa kopia reguły z backendu:
-  // jedna płeć → limit; dwie płcie lub coed → open
-  const genderLimited = !hasCoed && sexSet.size === 1;
-  const requiredGender = genderLimited ? [...sexSet][0] : null;
-
-  const canPrevalidate = !!userGender;
-  const genderConflict = genderLimited && canPrevalidate && !allowed.has(userGender);
-
-  const genderOK = (() => {
-    if (!genderLimited) return true;
-    if (!userGender || userGender === 'coed') return false;
-    return userGender === requiredGender;
-  })();
-
-  const genderBlockReason = (() => {
-    if (!genderLimited) return '';
-    if (!userGender || userGender === 'coed') {
-      return 'Ten turniej wymaga określonej płci. Uzupełnij płeć w profilu.';
-    }
-    if (userGender !== requiredGender) {
-      return 'Twoja płeć nie jest dopuszczona do tego turnieju.';
-    }
-    return '';
-  })();
-
-  // chipsy do UI
-  const computeGenderChips = (t) => {
-    if (!t) return [];
-    const set = new Set(
-      (t.categories || [])
-        .map(c => normChip(c?.gender))
-        .filter(Boolean)
-    );
-    if (set.has('Coed') || (set.has('M') && set.has('W'))) return ['Coed'];
-    return Array.from(set);
-  };
-
-  const deadlineOK = (() => {
-    if (!registration_deadline) return true;
-    const end = new Date(registration_deadline);
-    end.setHours(23, 59, 59, 999);
-    return new Date() <= end;
-  })();
-
-    const canRegisterNow = Boolean(applicationsOpen && deadlineOK && capacityOK);
-
-  // (jeśli jeszcze nie masz) helper do kategorii:
-  const getCategoryChips = (t) => {
-    if (!t) return [];
-    if (Array.isArray(t.categories) && t.categories.length) {
-      return t.categories
-        .map((c) =>
-          typeof c === 'string'
-            ? c
-            : (c?.categoryName ?? c?.name ?? c?.label ?? '')
-        )
-        .filter(Boolean);
-    }
-    return t.category ? [t.category] : [];
-  };
-
-  // policz wartości do renderu
-  const categoryChips = getCategoryChips(tournament);
-  const genderChips = computeGenderChips(tournament);
-
-
+  // ====== UI ======
   function MapPreview({ address }) {
     const src = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
     return (
@@ -378,27 +364,31 @@ const handleRegister = async () => {
 
   return (
     <section className="tournament-details container" role="main">
-      <Breadcrumbs items={[
-        { label: 'Home', href: '/' },
-        { label: 'Turnieje', href: '/tournaments' },
-        { label: name }
-      ]} />
+      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Turnieje', href: '/tournaments' }, { label: name }]} />
 
       <div className="details-grid">
         <div className="left-panel">
           <h1 className="details-title">{name}</h1>
           {description && <p className="details-description">{description}</p>}
+
           <div className="chips">
-            {categoryChips.map((txt, i) => (
-              <span key={`cat-${i}-${txt}`} className="chip">{txt}</span>
+            {getCategoryChips(tournament).map((txt, i) => (
+              <span key={`cat-${i}-${txt}`} className="chip">
+                {txt}
+              </span>
             ))}
             {genderChips.map((txt, i) => (
-              <span key={`gender-${i}-${txt}`} className="chip">{txt}</span>
+              <span key={`gender-${i}-${txt}`} className="chip">
+                {txt}
+              </span>
             ))}
+            {genderLimited && (
+              <span className="chip chip-info">Tylko dla {genderPolish(requiredGender)}</span>
+            )}
           </div>
+
           <p className="icon-label">
-            <Clock size={16} /> {new Date(start_date).toLocaleDateString()} –{' '}
-            {new Date(end_date).toLocaleDateString()}
+            <Clock size={16} /> {new Date(start_date).toLocaleDateString()} – {new Date(end_date).toLocaleDateString()}
           </p>
           <p className="icon-label">
             <Users size={16} /> Status zapisów: {applicationsOpen ? 'otwarta' : 'zamknięta'}
@@ -407,7 +397,9 @@ const handleRegister = async () => {
             <Users size={16} /> Limit miejsc: {participant_limit || '∞'}
           </p>
           <div className="progress-container">
-            <p><Users size={16} /> Uczestnicy:</p>
+            <p>
+              <Users size={16} /> Uczestnicy:
+            </p>
             {renderProgressBar(acceptedCount, participant_limit)}
           </div>
         </div>
@@ -419,17 +411,14 @@ const handleRegister = async () => {
           <MapPreview address={address} />
           <p className="icon-label">
             <Calendar size={16} /> Rejestracja do:{' '}
-            {registration_deadline
-              ? new Date(registration_deadline).toLocaleDateString()
-              : 'brak'}
+            {registration_deadline ? new Date(registration_deadline).toLocaleDateString() : 'brak'}
           </p>
         </div>
       </div>
 
       <div className="public-actions">
-        {!isLoggedIn && (
-          <p>Musisz się <a href="/login">zalogować</a>.</p>
-        )}
+        {!isLoggedIn && <p>Musisz się <a href="/login">zalogować</a>.</p>}
+
         {isLoggedIn && registrationStatus === 'invited' && (
           <>
             <p>Otrzymałeś zaproszenie do tego turnieju!</p>
@@ -441,22 +430,31 @@ const handleRegister = async () => {
             </button>
           </>
         )}
+
         {isLoggedIn && registrationStatus !== 'invited' && type === 'invite' && (
           <p>Turniej wyłącznie na zaproszenia. Skontaktuj się z organizatorem.</p>
         )}
+
         {isLoggedIn && registrationStatus !== 'invited' && type !== 'invite' && (
           checkingReg ? (
             <p>Sprawdzam stan zgłoszenia…</p>
           ) : registrationStatus === null ? (
-            (applicationsOpen &&
-              (!registration_deadline || new Date() < new Date(registration_deadline))) ? (
+            canRegisterNow ? (
               <button
                 className="btn-primary"
                 onClick={handleRegister}
-                disabled={genderLimited && canPrevalidate && !allowed.has(userGender)}
-                title={(applicationsOpen && deadlineOK && genderLimited && canPrevalidate && !allowed.has(userGender))
-                  ? genderBlockReason
-                  : undefined}
+                disabled={!canRegisterNow || genderConflict}
+                title={
+                  !applicationsOpen
+                    ? 'Zgłoszenia zamknięte'
+                    : !deadlineOK
+                      ? 'Po terminie'
+                      : !capacityOK
+                        ? 'Brak miejsc'
+                        : genderConflict
+                          ? `Ten turniej jest wyłącznie dla ${genderPolish(requiredGender)}.`
+                          : undefined
+                }
               >
                 Zgłoś udział
               </button>
@@ -478,78 +476,54 @@ const handleRegister = async () => {
             <p>Niestety, Twoje zgłoszenie zostało odrzucone.</p>
           )
         )}
-        {isLoggedIn && registrationStatus === null && canRegisterNow && genderLimited && canPrevalidate && !allowed.has(userGender) && (
-          <div className="muted" style={{ marginTop: 6 }}>{genderBlockReason}</div>
-        )}
       </div>
 
       {(isCreator || isTournyOrg) && (
         <div className="organizer-section">
-
           <div className="organizer-list">
             <div className="organizer-list-header">
               <h2>Organizatorzy</h2>
-              <button
-                className="btn-primary btn-add-org"
-                onClick={() => setRoleModalOpen(true)}
-              >
+              <button className="btn-primary btn-add-org" onClick={() => setRoleModalOpen(true)}>
                 Dodaj organizatora
               </button>
             </div>
             <ul>
-              {roles.filter(r => r.role === 'organizer').map(r => (
-                <li key={r.id}>
-                  <span className="org-name">
-                    {r.user.name} {r.user.surname}
-                  </span>
-                  {r.user.id !== user.id && (
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleRemoveOrganizer(r.id)}
-                    >
-                      Usuń
-                    </button>
-                  )}
-                </li>
-              ))}
+              {roles
+                .filter((r) => r.role === 'organizer')
+                .map((r) => (
+                  <li key={r.id}>
+                    <span className="org-name">
+                      {r.user.name} {r.user.surname}
+                    </span>
+                    {r.user.id !== user.id && (
+                      <button className="btn-delete" onClick={() => handleRemoveOrganizer(r.id)}>
+                        Usuń
+                      </button>
+                    )}
+                  </li>
+                ))}
             </ul>
           </div>
 
           <div className="organizer-actions">
             <h2>Opcje organizatora:</h2>
             <div className="actions-toolbar">
-              <button
-                className="btn-secondary"
-                onClick={() => navigate(`/tournaments/${tournament.id}/edit`)}
-              >
+              <button className="btn-secondary" onClick={() => navigate(`/tournaments/${tournament.id}/edit`)}>
                 Edytuj turniej
               </button>
               <button className="btn-delete" onClick={handleDelete}>
                 Usuń turniej
               </button>
-              <button
-                className="btn-primary"
-                onClick={() => setPlayerModalOpen(true)}
-              >
+              <button className="btn-primary" onClick={() => setPlayerModalOpen(true)}>
                 Dodaj zawodnika
               </button>
-              <button
-                className="btn-primary"
-                onClick={() => navigate(`/tournaments/${tournament.id}/manage/registrations`)}
-              >
+              <button className="btn-primary" onClick={() => navigate(`/tournaments/${tournament.id}/manage/registrations`)}>
                 Zarządzaj zgłoszeniami
               </button>
-              <button
-                className="btn-primary"
-                onClick={handleGenerateMatches}
-              >
+              <button className="btn-primary" onClick={handleGenerateMatches}>
                 Generuj mecze
               </button>
-
-              <button
-                className="btn-primary"
-                onClick={() => setRefereeModalOpen(true)}
-              >
+              <button className="btn-primary" onClick={() => setRefereeModalOpen(true)}>
                 Przydziel sędziego
               </button>
             </div>
@@ -568,7 +542,7 @@ const handleRegister = async () => {
       <InvitePlayerModal
         isOpen={isRoleModalOpen}
         onClose={() => setRoleModalOpen(false)}
-        existingIds={organizerIds}
+        existingIds={new Set(roles.filter((r) => r.role === 'organizer').map((r) => r.user.id))}
         title="Dodaj organizatora"
         placeholder="Szukaj organizatora…"
         onSelectUser={handleAddOrganizer}
@@ -582,7 +556,6 @@ const handleRegister = async () => {
       />
 
       <GroupStandings tournamentId={tournament.id} isOrganizer={isCreator || isTournyOrg} />
-
 
       <div className="details-actions sticky">
         <button className="btn-secondary" onClick={handleShare}>
