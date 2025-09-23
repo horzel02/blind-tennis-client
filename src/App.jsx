@@ -18,6 +18,8 @@ import RoleRoute from './components/RoleRoute';
 import MatchScorePanel from './components/MatchScorePanel';
 import TournamentMatches from './components/TournamentMatches';
 import TournamentBracket from './components/TournamentBracket';
+import TimetablePage from './pages/TimetablePage';
+
 
 export default function App() {
   return (
@@ -112,6 +114,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <MyRegistrationsPage />
+              </PrivateRoute>
+            }
+          />
+
+          <Route path="/timetable"
+            element={
+              <PrivateRoute>
+                <TimetablePage />
               </PrivateRoute>
             }
           />

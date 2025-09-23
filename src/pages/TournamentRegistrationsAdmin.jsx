@@ -290,6 +290,23 @@ export default function TournamentRegistrationsAdmin() {
     }
   };
 
+  const genderChip = (g) => {
+  const s = String(g||'').toLowerCase();
+  if (['male','m','mezczyzna','mężczyzna'].includes(s)) {
+    return <span className="chip chip--male"><span className="dot" />Mężczyzna</span>;
+  }
+  if (['female','f','kobieta'].includes(s)) {
+    return <span className="chip chip--female"><span className="dot" />Kobieta</span>;
+  }
+  return <span className="chip chip--sm chip--outline">—</span>;
+};
+
+const categoryChip = (cat) => {
+  const c = (cat||'').toUpperCase();
+  return c
+    ? <span className="chip" data-cat={c}><span className="dot" />{c}</span>
+    : <span className="chip chip--sm chip--outline">brak</span>;
+}
 
   // ─── OBSŁUGA ŁADOWANIA/BŁĘDÓW
   if (loading) return <p>Ładowanie zgłoszeń…</p>;
@@ -476,6 +493,8 @@ export default function TournamentRegistrationsAdmin() {
                       Data modyfikacji
                       {sortField === 'updatedAt' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
                     </th>
+                    <th>Płeć</th>
+                    <th>Preferowana kat.</th>
                     <th style={{ width: '200px', textAlign: 'center' }}>Akcje</th>
                   </tr>
                 </thead>
@@ -534,7 +553,13 @@ export default function TournamentRegistrationsAdmin() {
                         })}
                       </td>
 
-                      {/* 7) Akcje: pojedyncze (accept/reject/cancel/restore) */}
+                      {/* 7) Płeć z profilu użytkownika */}
+                      <td data-label="Płeć">{genderChip(reg.user?.gender)}</td>
+
+                      {/* 8) Preferowana kategoria (z profilu) */}
+                      <td data-label="Preferowana kat.">{categoryChip(reg.user?.preferredCategory)}</td>
+                      
+                      {/* 9) Akcje: pojedyncze (accept/reject/cancel/restore) */}
                       <td data-label="Akcje" className="actions-cell"> {/* Dodano klasę actions-cell do komórki */}
                         {reg.status === 'pending' ? (
                           <>
@@ -568,7 +593,7 @@ export default function TournamentRegistrationsAdmin() {
                         ) : reg.status === 'accepted' ? (
                           <>
                             {/* Tutaj możesz użyć klasy status-indicator, jeśli chcesz, ale dla jednolitości można zostawić tylko tekst */}
-                            <span className="reg-admin-status-approved">✓ Zaakceptowane</span> 
+                            <span className="reg-admin-status-approved">✓ Zaakceptowane</span>
                             <button
                               onClick={() => handleStatusChange(reg.id, 'pending')}
                               className="btn-icon btn-delete" // Zmieniono na btn-delete

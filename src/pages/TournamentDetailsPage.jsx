@@ -37,6 +37,9 @@ export default function TournamentDetailsPage() {
   const [checkingReg, setCheckingReg] = useState(true);
 
   const [acceptedCount, setAcceptedCount] = useState(0);
+  const limit = Number(tournament?.participant_limit ?? Infinity);
+  const capacityOK = acceptedCount < limit;
+
 
   const [isPlayerModalOpen, setPlayerModalOpen] = useState(false);
   const [isRoleModalOpen, setRoleModalOpen] = useState(false);
@@ -114,6 +117,7 @@ export default function TournamentDetailsPage() {
     organizer_id
   } = tournament;
 
+
   const isLoggedIn = Boolean(user);
   const isCreator = user?.id === organizer_id;
   const isTournyOrg = roles.some(r =>
@@ -121,18 +125,28 @@ export default function TournamentDetailsPage() {
   );
   const address = `${street}, ${postalCode} ${city}, ${country}`;
 
-  const handleRegister = async () => {
-    if (!isLoggedIn) return navigate('/login');
-    try {
-      const reg = await registrationService.createRegistration(tournament.id);
-      setRegistrationStatus(reg.status);
-      setRegistrationId(reg.id);
-      fetchAcceptedCount();
-      toast.success('Zgłoszenie wysłane!');
-    } catch (err) {
+const handleRegister = async () => {
+  // twarde stopery BEZ strzelania w API
+  if (!applicationsOpen) { toast.error('Zgłoszenia są zamknięte.'); return; }
+  if (!deadlineOK)       { toast.error('Termin rejestracji minął.'); return; }
+  if (!capacityOK)       { toast.error('Brak miejsc (limit osiągnięty).'); return; }
+
+  // Uwaga: płeć NIE blokuje tutaj, jeśli jej nie znamy – to zweryfikuje backend.
+  try {
+    const reg = await registrationService.createRegistration(tournament.id);
+    // odśwież status/listę itp.
+    toast.success('Zgłoszenie wysłane.');
+  } catch (err) {
+    const code = err?.payload?.code || err?.code;
+    if (code === 'GENDER_REQUIRED' || code === 'GENDER_MISMATCH') {
       toast.error(err.message);
+    } else {
+      toast.error(err?.message || 'Nie udało się wysłać zgłoszenia.');
     }
-  };
+  }
+};
+
+
   const handleUnregister = async () => {
     if (!window.confirm('Wycofać zgłoszenie?')) return;
     try {
@@ -256,39 +270,82 @@ export default function TournamentDetailsPage() {
     );
   };
 
-  // ------ GENDER chips z fallbackiem ------
+  // ------ GENDER chips + bramka wg kategorii ------
 
-  // mapowanie na skróty M / W / Coed (obsługa różnych wariantów)
-  const normGender = (g) => {
+  const norm = (g) => {
     if (!g) return null;
     const s = String(g).trim().toLowerCase();
-    if (['m', 'male', 'mężczyźni', 'mezczyzni'].includes(s)) return 'M';
-    if (['w', 'female', 'kobiety', 'f'].includes(s)) return 'W';
-    if (['coed', 'mixed', 'mix'].includes(s)) return 'Coed';
-    // jeśli już jest 'M' / 'W' / 'Coed'
-    if (['m', 'w', 'coed'].includes(s)) return s === 'm' ? 'M' : s === 'w' ? 'W' : 'Coed';
-    return String(g);
+    if (['m', 'male', 'men', 'man', 'mezczyzni', 'mężczyźni', 'mezczyzna', 'mężczyzna'].includes(s)) return 'male';
+    if (['w', 'female', 'women', 'woman', 'kobiety', 'k', 'f', 'kobieta'].includes(s)) return 'female';
+    if (['coed', 'mixed', 'mix', 'open'].includes(s)) return 'coed';
+    return null;
   };
 
-  // wylicz chip(y) płci: najpierw bierzemy t.gender, a jak nie ma — z kategorii
+  const normChip = (g) => {
+    const x = norm(g);
+    if (x === 'male') return 'M';
+    if (x === 'female') return 'W';
+    if (x === 'coed') return 'Coed';
+    return null;
+  };
+
+  const { gender: userGenderRaw } = user || {};
+  const userGender = norm(userGenderRaw);
+
+  const catGenders = new Set(
+    (tournament?.categories || [])
+      .map(c => norm(c?.gender))
+      .filter(Boolean)
+  );
+
+  const hasCoed = catGenders.has('coed');
+  const sexSet = new Set([...catGenders].filter(g => g === 'male' || g === 'female'));
+
+  // frontendowa kopia reguły z backendu:
+  // jedna płeć → limit; dwie płcie lub coed → open
+  const genderLimited = !hasCoed && sexSet.size === 1;
+  const requiredGender = genderLimited ? [...sexSet][0] : null;
+
+  const canPrevalidate = !!userGender;
+  const genderConflict = genderLimited && canPrevalidate && !allowed.has(userGender);
+
+  const genderOK = (() => {
+    if (!genderLimited) return true;
+    if (!userGender || userGender === 'coed') return false;
+    return userGender === requiredGender;
+  })();
+
+  const genderBlockReason = (() => {
+    if (!genderLimited) return '';
+    if (!userGender || userGender === 'coed') {
+      return 'Ten turniej wymaga określonej płci. Uzupełnij płeć w profilu.';
+    }
+    if (userGender !== requiredGender) {
+      return 'Twoja płeć nie jest dopuszczona do tego turnieju.';
+    }
+    return '';
+  })();
+
+  // chipsy do UI
   const computeGenderChips = (t) => {
     if (!t) return [];
-    if (t.gender) return [normGender(t.gender)].filter(Boolean);
-
-    // fallback: z kategorii (jeśli mają gender)
-    if (Array.isArray(t.categories) && t.categories.length) {
-      const set = new Set(
-        t.categories
-          .map((c) => (typeof c === 'string' ? null : normGender(c?.gender)))
-          .filter(Boolean)
-      );
-      if (set.size === 0) return [];
-      // jeśli są i M, i W → Coed
-      if (set.has('M') && set.has('W')) return ['Coed'];
-      return Array.from(set);
-    }
-    return [];
+    const set = new Set(
+      (t.categories || [])
+        .map(c => normChip(c?.gender))
+        .filter(Boolean)
+    );
+    if (set.has('Coed') || (set.has('M') && set.has('W'))) return ['Coed'];
+    return Array.from(set);
   };
+
+  const deadlineOK = (() => {
+    if (!registration_deadline) return true;
+    const end = new Date(registration_deadline);
+    end.setHours(23, 59, 59, 999);
+    return new Date() <= end;
+  })();
+
+    const canRegisterNow = Boolean(applicationsOpen && deadlineOK && capacityOK);
 
   // (jeśli jeszcze nie masz) helper do kategorii:
   const getCategoryChips = (t) => {
@@ -305,12 +362,9 @@ export default function TournamentDetailsPage() {
     return t.category ? [t.category] : [];
   };
 
-  const renderChip = (text) => (text ? <span className="chip">{text}</span> : null);
-
   // policz wartości do renderu
   const categoryChips = getCategoryChips(tournament);
   const genderChips = computeGenderChips(tournament);
-
 
 
   function MapPreview({ address }) {
@@ -396,7 +450,14 @@ export default function TournamentDetailsPage() {
           ) : registrationStatus === null ? (
             (applicationsOpen &&
               (!registration_deadline || new Date() < new Date(registration_deadline))) ? (
-              <button className="btn-primary" onClick={handleRegister}>
+              <button
+                className="btn-primary"
+                onClick={handleRegister}
+                disabled={genderLimited && canPrevalidate && !allowed.has(userGender)}
+                title={(applicationsOpen && deadlineOK && genderLimited && canPrevalidate && !allowed.has(userGender))
+                  ? genderBlockReason
+                  : undefined}
+              >
                 Zgłoś udział
               </button>
             ) : (
@@ -416,6 +477,9 @@ export default function TournamentDetailsPage() {
           ) : (
             <p>Niestety, Twoje zgłoszenie zostało odrzucone.</p>
           )
+        )}
+        {isLoggedIn && registrationStatus === null && canRegisterNow && genderLimited && canPrevalidate && !allowed.has(userGender) && (
+          <div className="muted" style={{ marginTop: 6 }}>{genderBlockReason}</div>
         )}
       </div>
 

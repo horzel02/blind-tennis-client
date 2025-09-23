@@ -9,11 +9,11 @@ export async function register(data) {
     credentials: 'include',
     body: JSON.stringify(data),
   });
+  const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const errorData = await res.json();
-    throw new Error(errorData.message || 'Rejestracja nieudana.');
+    throw new Error(payload?.error || payload?.message || 'Rejestracja nieudana.');
   }
-  return res.json();
+  return payload;
 }
 
 export async function login(data) {

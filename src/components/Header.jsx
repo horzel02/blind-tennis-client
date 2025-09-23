@@ -116,7 +116,8 @@ export default function Header() {
           <Link to="/profile" onClick={toggleSidebar}>Informacje o użytkowniku</Link>
           <Link to="/tournaments/mine" onClick={toggleSidebar}>Moje turnieje</Link>
           <Link to="/registrations/mine" onClick={toggleSidebar}>Moje zgłoszenia</Link>
-          
+          <Link to="/timetable" onClick={toggleSidebar}>Terminarz</Link>
+
           <button onClick={handleLogout} className="logout-btn">Wyloguj</button>
         </SidebarMenu>
       )}

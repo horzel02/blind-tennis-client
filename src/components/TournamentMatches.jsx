@@ -9,6 +9,10 @@ import * as matchService from '../services/matchService';
 import * as tournamentService from '../services/tournamentService';
 import * as roleService from '../services/tournamentUserRoleService';
 
+import ScheduleMatchModal from '../components/ScheduleMatchModal';
+import AutoScheduleModal from '../components/AutoScheduleModal';
+
+
 import '../styles/tournamentMatches.css';
 
 /* ============================================================================
@@ -98,6 +102,11 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   const p1ComboRef = useRef(null);
   const p2ComboRef = useRef(null);
 
+  const [openSchedule, setOpenSchedule] = useState(false);
+  const [targetMatch, setTargetMatch] = useState(null);
+
+  const [openAuto, setOpenAuto] = useState(false);
+
   // sockets
   const socketRef = useRef(null);
   const joinedRoomsRef = useRef(new Set());
@@ -117,6 +126,12 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     (match) => !!user && isTournyReferee && match?.referee?.id === user.id,
     [user, isTournyReferee]
   );
+
+  const fmtDT = v =>
+    v ? new Date(v).toLocaleString('pl-PL', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    }) : null;
 
   useEffect(() => {
     const s = socketRef.current;
@@ -698,6 +713,23 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           </div>
         </div>
 
+        {match.matchTime
+          ? <div className="pill pill-time">
+            {fmtDT(match.matchTime)} {match.courtNumber ? `• Kort ${match.courtNumber}` : ''}
+          </div>
+          : <div className="pill pill-muted">Termin: TBA</div>
+        }
+
+
+        {match.status === 'finished' && match.resultType && match.resultType !== 'NORMAL' && (
+          <div className="pill pill-admin">
+            {match.resultType === 'WALKOVER' ? 'Walkower'
+              : match.resultType === 'DISQUALIFICATION' ? 'Dyskwalifikacja'
+                : match.resultType === 'RETIREMENT' ? 'Krecz'
+                  : match.resultType}
+          </div>
+        )}
+
         <div className="match-status">
           {match.status === 'scheduled' && 'Zaplanowany'}
           {match.status === 'in_progress' && <span className="live-pill">W trakcie • LIVE</span>}
@@ -709,6 +741,16 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           {resultBadge(match)}
         </div>
 
+        {isTournyOrg && (
+          <div className="org-tools">
+            <button
+              className="btn-secondary"
+              onClick={() => { setTargetMatch(match); setOpenSchedule(true); }}
+            >
+              Ustaw termin
+            </button>
+          </div>
+        )}
 
         {/* Przycisk do panelu wyniku – tylko dla sędziego tego meczu */}
         {showScoreBtn && (
@@ -866,6 +908,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
             </div>
           </div>
         )}
+
+        {isTournyOrg && (
+          <button className="btn-primary" onClick={() => setOpenAuto(true)}>
+            Auto-plan
+          </button>
+        )}
+
       </header>
 
       <div className="tabs-container">
@@ -1126,6 +1175,31 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           </div>
         </div>
       )}
+      <ScheduleMatchModal
+              open={openSchedule}
+              match={targetMatch}
+              onClose={(saved) => {
+                setOpenSchedule(false);
+                setTargetMatch(null);
+                if (saved) {
+                  // opcjonalnie dociągnij świeże dane; masz już nasłuch socketów,
+                  // więc tu nic nie musisz robić – zostaw pusto.
+                  // fetchAll();
+                }
+              }}
+            />
+
+            <AutoScheduleModal
+              open={openAuto}
+              tournamentId={id}
+              onClose={(ran) => {
+                setOpenAuto(false);
+                if (ran) {
+                  // Socket 'matches-invalidate' już wymusza odświeżenie w Twoim kodzie;
+                  // nic nie trzeba robić.
+                }
+              }}
+            />
     </section>
   );
 }

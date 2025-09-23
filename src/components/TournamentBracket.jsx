@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 import * as matchService from '../services/matchService';
 import '../styles/tournamentBracket.css';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -43,7 +44,6 @@ function roundTitleByKey(k) {
 }
 
 function matchIndex(label = '') {
-    // wyciąga ostatni numer po słowie "Mecz"
     const m = /mecz\D*([0-9]+)\s*$/i.exec(label || '');
     return m ? Number(m[1]) : null;
 }
@@ -52,15 +52,28 @@ function isKO(label = '') {
     return /(1\/(8|16|32|64)\s*finału|ćwierćfinał|półfinał|finał)/i.test(label || '');
 }
 
+// mapka dla typów administracyjnych (jak w TournamentMatches)
+function resultTypeLabel(rt) {
+    if (!rt || rt === 'NORMAL') return null;
+    if (rt === 'WALKOVER') return 'Walkower';
+    if (rt === 'DISQUALIFICATION') return 'Dyskwalifikacja';
+    if (rt === 'RETIREMENT') return 'Krecz';
+    return rt;
+}
+
 export default function TournamentBracket() {
     const { id } = useParams(); // tournamentId
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    const [tournamentName, setTournamentName] = useState(null);
+    const [tourLoading, setTourLoading] = useState(true);
+    const [tourErr, setTourErr] = useState('');
+
     const canUseScorePanel = useCallback((m) => {
         if (!user) return false;
         if (m.status !== 'scheduled' && m.status !== 'in_progress') return false;
-        return m?.referee?.id === user?.id; // tylko sędzia przypisany do meczu
+        return m?.referee?.id === user?.id;
     }, [user]);
 
     const [allMatches, setAllMatches] = useState([]);
@@ -72,14 +85,31 @@ export default function TournamentBracket() {
     const fetchAll = useCallback(async () => {
         setLoading(true);
         try {
-            // bez statusu → pobierze wszystkie; posortowane round asc + id asc
             const data = await matchService.getMatchesByTournamentId(id);
-            // zostaw tylko KO
             setAllMatches(data.filter(m => isKO(m.round)));
         } finally {
             setLoading(false);
         }
     }, [id]);
+
+    useEffect(() => {
+    let alive = true;
+    (async () => {
+        setTourLoading(true);
+        setTourErr('');
+        try {
+            const res = await fetch(`${API_URL}/api/tournaments/${id}`, { credentials: 'include' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Nie udało się pobrać turnieju');
+            if (alive) setTournamentName(data?.name || null);
+        } catch (e) {
+            if (alive) { setTournamentName(null); setTourErr(e.message || 'Err'); }
+        } finally {
+            if (alive) setTourLoading(false);
+        }
+    })();
+    return () => { alive = false; };
+}, [id]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -90,16 +120,12 @@ export default function TournamentBracket() {
         const tid = parseInt(id, 10);
         s.emit('join-tournament', tid);
 
-        // jeżeli status meczu się zmienił → refetch (drabinka to przekrój wszystkich statusów)
         const onStatus = () => fetchAll();
 
-        // pojedynczy mecz zaktualizowany
         const onUpdated = (updated) => {
             setAllMatches(prev => {
                 const idx = prev.findIndex(x => x.id === updated.id);
-                // widok tylko KO
                 if (!isKO(updated.round)) {
-                    // jeśli wypadł z KO (nie powinno), usuń
                     if (idx !== -1) {
                         const copy = [...prev]; copy.splice(idx, 1); return copy;
                     }
@@ -166,30 +192,29 @@ export default function TournamentBracket() {
 
     // ułóż dane do kolumn KO
     const columns = useMemo(() => {
-        const buckets = new Map(); // title -> [matches]
+        const buckets = new Map();
         for (const m of allMatches) {
             const k = roundKey(m.round);
             const title = roundTitleByKey(k);
             if (!buckets.has(title)) buckets.set(title, []);
             buckets.get(title).push(m);
         }
-        // posortuj mecze w kolumnie po indeksie meczu (jeśli jest) inaczej po id
         for (const [t, arr] of buckets) {
             arr.sort((a, b) => {
                 const ai = matchIndex(a.round);
                 const bi = matchIndex(b.round);
-                if (ai != null && bi != null) return ai - bi;  // NUMERYCZNIE
+                if (ai != null && bi != null) return ai - bi;
                 if (ai != null) return -1;
                 if (bi != null) return 1;
-                return a.id - b.id; // fallback stabilny
+                return a.id - b.id;
             });
         }
-        // posortuj kolumny wg ROUND_COLUMNS i wyfiltruj tylko te, które mają mecze
         return ROUND_COLUMNS
             .map(title => [title, buckets.get(title) || []])
             .filter(([, arr]) => arr.length > 0);
     }, [allMatches]);
 
+    // helpery renderu
     const renderPlayer = (p, isWinner) => (
         <div className={`br-player ${isWinner ? 'winner' : ''}`}>
             {p ? `${p.name} ${p.surname}` : 'TBD'}
@@ -205,13 +230,37 @@ export default function TournamentBracket() {
         );
     };
 
-    const goToScorePanel = (m) => {
-        // organizacja ról po Twojej stronie — tu tylko nawigacja
-        navigate(`/match-score-panel/${m.id}`);
+    const renderScheduleChip = (m) => {
+        if (!m.matchTime) return null;
+        const when = new Date(m.matchTime).toLocaleString();
+        const court = m.courtNumber ? `• Kort ${m.courtNumber}` : '';
+        const dur = m.durationMin ? `• ${m.durationMin}’` : '';
+        return <div className="pill pill-time">{when} {court} {dur}</div>;
     };
+
+    const renderAdminBadge = (m) => {
+        if (m.status !== 'finished') return null;
+        const txt = resultTypeLabel(m.resultType);
+        if (!txt) return null;
+        return <div className="pill pill-admin">{txt}</div>;
+    };
+
+    const goToScorePanel = (m) => navigate(`/match-score-panel/${m.id}`);
+
+
+    const breadcrumbItems = [
+        { label: 'Home', href: '/' },
+        {
+            label: tournamentName ? `Turniej: ${tournamentName}` : `Turniej #${id}`,
+            href: `/tournaments/${id}/details`,
+        },
+        { label: 'Drabinka pucharowa' },
+
+    ];
 
     return (
         <section className="br-section">
+            <Breadcrumbs items={breadcrumbItems} />
             <div className="br-header">
                 <h2>Drabinka pucharowa</h2>
                 <div className="br-legend">
@@ -228,7 +277,7 @@ export default function TournamentBracket() {
             ) : (
                 <div
                     className="br-grid"
-                    style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(240px, 1fr))` }}
+                    style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(260px, 1fr))` }}
                 >
                     {columns.map(([title, list]) => (
                         <div key={title} className="br-col">
@@ -241,11 +290,20 @@ export default function TournamentBracket() {
                                     return (
                                         <div key={m.id} className={`br-match ${live ? 'live' : ''} ${finished ? 'finished' : ''}`}>
                                             <div className="br-round">{m.round}</div>
+
+                                            {/* termin/kort/czas */}
+                                            {renderScheduleChip(m)}
+
                                             <div className="br-players">
                                                 {renderPlayer(m.player1, wId && m.player1 && wId === m.player1.id)}
                                                 {renderPlayer(m.player2, wId && m.player2 && wId === m.player2.id)}
                                             </div>
+
                                             {renderScore(m)}
+
+                                            {/* badge admin (WO/DQ/RET) */}
+                                            {renderAdminBadge(m)}
+
                                             <div className="br-footer">
                                                 {live && <span className="live-dot" aria-label="live" />}
                                                 {finished && wId && (
