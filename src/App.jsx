@@ -19,7 +19,8 @@ import MatchScorePanel from './components/MatchScorePanel';
 import TournamentMatches from './components/TournamentMatches';
 import TournamentBracket from './components/TournamentBracket';
 import TimetablePage from './pages/TimetablePage';
-
+import PublicProfilePage from './pages/PublicProfilePage';
+import AdminPanel from './pages/AdminPanel';
 
 export default function App() {
   return (
@@ -125,6 +126,10 @@ export default function App() {
               </PrivateRoute>
             }
           />
+
+          <Route path="/u/:id" element={<PublicProfilePage />} />
+
+          <Route path="/admin" element={<AdminPanel />} />
 
           <Route path="*" element={<div>404 – nie znaleziono</div>} />
         </Routes>

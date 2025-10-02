@@ -42,7 +42,7 @@ function scoreLine(m) {
 
 export default function TimetablePage() {
   const { user } = useAuth();
-  const [role, setRole] = useState('player');        // 'player' | 'referee'
+  const [role, setRole] = useState('player');        // 'player' | 'referee' | 'guardian'
   const [state, setState] = useState('upcoming');    // 'upcoming'|'live'|'finished'
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
@@ -62,7 +62,9 @@ export default function TimetablePage() {
     if (!user) return;
     if (reset) { setLoading(true); setPage(1); }
     try {
-      const resp = await userTimetableService.getMyMatches({ role, state, page: reset ? 1 : page, limit: 20 });
+      const resp = await userTimetableService.getMyMatches({
+        role, state, page: reset ? 1 : page, limit: 20
+      });
       if (reset) {
         setItems(resp.items || []);
       } else {
@@ -107,7 +109,6 @@ export default function TimetablePage() {
   useEffect(() => {
     const s = io(API_URL, { withCredentials: true });
     socketRef.current = s;
-    // globalne — gdy coś się zmieniło w turnieju, odśwież listę (mamy agregat)
     const invalidate = () => fetchList(true);
     s.on('match-updated', invalidate);
     s.on('matches-invalidate', invalidate);
@@ -128,18 +129,33 @@ export default function TimetablePage() {
   }, [state]);
 
   const renderOpponent = (m) => {
+    const A = m.player1 ? `${m.player1.name} ${m.player1.surname}` : 'TBD';
+    const B = m.player2 ? `${m.player2.name} ${m.player2.surname}` : 'TBD';
+
     if (role === 'referee') {
-      const A = m.player1 ? `${m.player1.name} ${m.player1.surname}` : 'TBD';
-      const B = m.player2 ? `${m.player2.name} ${m.player2.surname}` : 'TBD';
       return `${A} vs ${B}`;
     }
+    if (role === 'guardian') {
+      // jeśli backend zwraca ward/wardId, pokaż chip
+      const wardName =
+        (m.ward && `${m.ward.name} ${m.ward.surname}`) ||
+        (m.wardPlayer && `${m.wardPlayer.name} ${m.wardPlayer.surname}`) ||
+        null;
+
+      return (
+        <>
+          {A} vs {B}
+          {wardName ? <span className="sl-chip sl-chip--muted" style={{ marginLeft: 6 }}>podopieczny: {wardName}</span> : null}
+        </>
+      );
+    }
+    // role === 'player'
     const meId = user?.id;
     const opp = (m.player1 && m.player1.id !== meId) ? m.player1 : (m.player2 && m.player2.id !== meId) ? m.player2 : null;
     return opp ? `Twój przeciwnik: ${opp.name} ${opp.surname}` : 'Przeciwnik: TBD';
   };
 
   const onClickRow = (m) => {
-    // przenosimy do strony turnieju
     window.location.href = `/tournaments/${m.tournamentId}/details`;
   };
 
@@ -155,6 +171,9 @@ export default function TimetablePage() {
             </button>
             <button className={`st-tab ${role === 'referee' ? 'active' : ''}`} onClick={() => setRole('referee')}>
               Jako sędzia
+            </button>
+            <button className={`st-tab ${role === 'guardian' ? 'active' : ''}`} onClick={() => setRole('guardian')}>
+              Jako opiekun
             </button>
           </div>
           <div className="st-group">

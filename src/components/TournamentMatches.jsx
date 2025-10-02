@@ -1,6 +1,6 @@
 // client/src/components/TournamentMatches.jsx
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -695,7 +695,10 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           <div className="match-referee">
             {match.referee ? (
               <span className="ref-pill" title={`ID: ${match.referee.id}`}>
-                Sędzia: {match.referee.name} {match.referee.surname}
+                Sędzia:{' '}
+                <Link to={`/u/${match.referee.id}`} className="referee-link" title="Zobacz profil sędziego">
+                  {match.referee.name} {match.referee.surname}
+                </Link>
               </span>
             ) : (
               <span className="ref-none">Brak sędziego</span>
@@ -705,11 +708,21 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
         <div className="match-players">
           <div className="player">
-            {match.player1 ? `${match.player1.name} ${match.player1.surname}` : 'TBD'}
+            {match.player1 ? (
+              <Link to={`/u/${match.player1.id}`} title="Profil zawodnika">
+                {match.player1.name} {match.player1.surname}
+              </Link>
+            ) : 'TBD'}
           </div>
+
           <div className="vs">vs</div>
+
           <div className="player">
-            {match.player2 ? `${match.player2.name} ${match.player2.surname}` : 'TBD'}
+            {match.player2 ? (
+              <Link to={`/u/${match.player2.id}`} title="Profil zawodnika">
+                {match.player2.name} {match.player2.surname}
+              </Link>
+            ) : 'TBD'}
           </div>
         </div>
 
@@ -1176,30 +1189,30 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
         </div>
       )}
       <ScheduleMatchModal
-              open={openSchedule}
-              match={targetMatch}
-              onClose={(saved) => {
-                setOpenSchedule(false);
-                setTargetMatch(null);
-                if (saved) {
-                  // opcjonalnie dociągnij świeże dane; masz już nasłuch socketów,
-                  // więc tu nic nie musisz robić – zostaw pusto.
-                  // fetchAll();
-                }
-              }}
-            />
+        open={openSchedule}
+        match={targetMatch}
+        onClose={(saved) => {
+          setOpenSchedule(false);
+          setTargetMatch(null);
+          if (saved) {
+            // opcjonalnie dociągnij świeże dane; masz już nasłuch socketów,
+            // więc tu nic nie musisz robić – zostaw pusto.
+            // fetchAll();
+          }
+        }}
+      />
 
-            <AutoScheduleModal
-              open={openAuto}
-              tournamentId={id}
-              onClose={(ran) => {
-                setOpenAuto(false);
-                if (ran) {
-                  // Socket 'matches-invalidate' już wymusza odświeżenie w Twoim kodzie;
-                  // nic nie trzeba robić.
-                }
-              }}
-            />
+      <AutoScheduleModal
+        open={openAuto}
+        tournamentId={id}
+        onClose={(ran) => {
+          setOpenAuto(false);
+          if (ran) {
+            // Socket 'matches-invalidate' już wymusza odświeżenie w Twoim kodzie;
+            // nic nie trzeba robić.
+          }
+        }}
+      />
     </section>
   );
 }

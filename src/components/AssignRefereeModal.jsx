@@ -15,10 +15,10 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
   async function load() {
     try {
       setLoading(true);
-      const r = await roleService.listRoles(tournamentId);
+      const r = await roleService.listRoles(tournamentId); // aktywni sędziowie
       setRoles(r || []);
     } catch (e) {
-      toast.error(e.message || 'Błąd ładowania ról');
+      toast.error(e.message || 'Błąd ładowania sędziów');
       setRoles([]);
     } finally {
       setLoading(false);
@@ -30,18 +30,19 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
     load();
   }, [isOpen, tournamentId]);
 
-  const handleAddReferee = async (u) => {
+  // Zaproszenie (wysyłamy invite — akceptacja przyjdzie z dzwonka)
+  const handleInviteReferee = async (u) => {
     try {
-      await roleService.addRole(tournamentId, u.id, 'referee');
-      toast.success(`Dodano sędziego: ${u.name} ${u.surname}`);
+      await roleService.inviteReferee(tournamentId, u.id);
+      toast.success(`Wysłano zaproszenie: ${u.name} ${u.surname}`);
       setPickOpen(false);
-      await load();
-      onChanged?.();
+      onChanged?.(); // ewentualnie odśwież coś u rodzica
     } catch (e) {
-      toast.error(e.message || 'Nie udało się dodać roli sędziego');
+      toast.error(e.message || 'Nie udało się wysłać zaproszenia');
     }
   };
 
+  // Usunięcie aktywnego sędziego (rola już istnieje)
   const handleRemoveReferee = async (userId) => {
     if (!window.confirm('Usunąć tego sędziego z turnieju?')) return;
     try {
@@ -59,25 +60,34 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
   return (
     <div className="modal-backdrop">
       <div className="modal-content">
-        <h2>Zarządzaj sędziami turnieju</h2>
+        <h2>Sędziowie</h2>
 
         {loading ? (
           <p>Ładowanie…</p>
         ) : (
           <>
-            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12 }}>
-              <strong>Aktualni sędziowie</strong>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 12 }}>
+              <strong>Aktywni sędziowie</strong>
               <button className="btn btn-primary" onClick={() => setPickOpen(true)}>
-                Dodaj sędziego
+                Zaproś sędziego
               </button>
             </div>
 
             {refereeRoles.length === 0 ? (
-              <p className="muted">Brak sędziów w tym turnieju.</p>
+              <p className="muted" style={{ marginTop: 8 }}>Brak sędziów w tym turnieju.</p>
             ) : (
               <ul style={{ listStyle:'none', padding:0, margin:0 }}>
                 {refereeRoles.map(r => (
-                  <li key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid #eee' }}>
+                  <li
+                    key={r.id}
+                    style={{
+                      display:'flex',
+                      justifyContent:'space-between',
+                      alignItems:'center',
+                      padding:'8px 0',
+                      borderBottom:'1px solid #eee'
+                    }}
+                  >
                     <span>
                       {r.user.name} {r.user.surname}{r.user.email ? ` (${r.user.email})` : ''}
                     </span>
@@ -99,9 +109,9 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
           isOpen={pickOpen}
           onClose={() => setPickOpen(false)}
           existingIds={refereeIds}
-          title="Dodaj sędziego do turnieju"
+          title="Zaproś sędziego do turnieju"
           placeholder="Szukaj po nazwisku lub e-mailu…"
-          onSelectUser={handleAddReferee}
+          onSelectUser={handleInviteReferee}
         />
       </div>
     </div>

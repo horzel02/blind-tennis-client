@@ -13,15 +13,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import '../styles/header.css';
 import SidebarMenu from './SidebarMenu';
+import NotificationBell from './NotificationBell';
 
 export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Stan dla otwarcia/zamknięcia menu bocznego
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const profileHref = user ? `/u/${user.id}` : '/login';
 
-  // Funkcja do przełączania menu bocznego
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
   const handleLogout = async () => {
@@ -60,8 +60,14 @@ export default function Header() {
             <span className="tooltip">Dodaj turniej</span>
           </Link>
 
+          {/* Dzwonek z powiadomieniami – tylko dla zalogowanych */}
+          {user && (
+            <div className="icon-button" aria-label="Powiadomienia" style={{ position: 'relative' }}>
+              <NotificationBell />
+            </div>
+          )}
+
           {user ? (
-            // Przycisk użytkownika
             <div className="user-menu">
               <button
                 type="button"
@@ -113,10 +119,26 @@ export default function Header() {
           </div>
 
           <div className="sidebar-section-title">Nawigacja</div>
-          <Link to="/profile" onClick={toggleSidebar}>Informacje o użytkowniku</Link>
+          <Link to={profileHref} onClick={toggleSidebar}>Profil</Link>
           <Link to="/tournaments/mine" onClick={toggleSidebar}>Moje turnieje</Link>
           <Link to="/registrations/mine" onClick={toggleSidebar}>Moje zgłoszenia</Link>
           <Link to="/timetable" onClick={toggleSidebar}>Terminarz</Link>
+          {(() => {
+            const appRoles = user?.appRoles || [];
+            const isPriv = user?.role === 'admin'
+              || user?.role === 'moderator'
+              || appRoles.includes('admin')
+              || appRoles.includes('moderator');
+            if (!isPriv) return null;
+            return (
+              <>
+                <div className="sidebar-section-title">Administracja</div>
+                <Link to="/admin" onClick={toggleSidebar}>Panel administracyjny</Link>
+              </>
+            );
+          })()}
+
+
 
           <button onClick={handleLogout} className="logout-btn">Wyloguj</button>
         </SidebarMenu>

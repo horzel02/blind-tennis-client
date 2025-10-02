@@ -291,22 +291,22 @@ export default function TournamentRegistrationsAdmin() {
   };
 
   const genderChip = (g) => {
-  const s = String(g||'').toLowerCase();
-  if (['male','m','mezczyzna','mężczyzna'].includes(s)) {
-    return <span className="chip chip--male"><span className="dot" />Mężczyzna</span>;
-  }
-  if (['female','f','kobieta'].includes(s)) {
-    return <span className="chip chip--female"><span className="dot" />Kobieta</span>;
-  }
-  return <span className="chip chip--sm chip--outline">—</span>;
-};
+    const s = String(g || '').toLowerCase();
+    if (['male', 'm', 'mezczyzna', 'mężczyzna'].includes(s)) {
+      return <span className="chip chip--male"><span className="dot" />Mężczyzna</span>;
+    }
+    if (['female', 'f', 'kobieta'].includes(s)) {
+      return <span className="chip chip--female"><span className="dot" />Kobieta</span>;
+    }
+    return <span className="chip chip--sm chip--outline">—</span>;
+  };
 
-const categoryChip = (cat) => {
-  const c = (cat||'').toUpperCase();
-  return c
-    ? <span className="chip" data-cat={c}><span className="dot" />{c}</span>
-    : <span className="chip chip--sm chip--outline">brak</span>;
-}
+  const categoryChip = (cat) => {
+    const c = (cat || '').toUpperCase();
+    return c
+      ? <span className="chip" data-cat={c}><span className="dot" />{c}</span>
+      : <span className="chip chip--sm chip--outline">brak</span>;
+  }
 
   // ─── OBSŁUGA ŁADOWANIA/BŁĘDÓW
   if (loading) return <p>Ładowanie zgłoszeń…</p>;
@@ -513,9 +513,11 @@ const categoryChip = (cat) => {
 
                       {/* 2) Zawodnik: link do profilu */}
                       <td data-label="Zawodnik">
-                        <Link to={`/users/${reg.user.id}`} className="reg-username-link">
-                          {reg.user.name} {reg.user.surname}
-                        </Link>
+                        {reg.user ? (
+                          <Link to={`/u/${reg.user.id}`} className="reg-username-link" title="Zobacz profil">
+                            {reg.user.name} {reg.user.surname}
+                          </Link>
+                        ) : '—'}
                       </td>
 
                       {/* 3) Email */}
@@ -558,7 +560,7 @@ const categoryChip = (cat) => {
 
                       {/* 8) Preferowana kategoria (z profilu) */}
                       <td data-label="Preferowana kat.">{categoryChip(reg.user?.preferredCategory)}</td>
-                      
+
                       {/* 9) Akcje: pojedyncze (accept/reject/cancel/restore) */}
                       <td data-label="Akcje" className="actions-cell"> {/* Dodano klasę actions-cell do komórki */}
                         {reg.status === 'pending' ? (

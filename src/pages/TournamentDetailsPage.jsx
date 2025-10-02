@@ -10,10 +10,15 @@ import * as tournamentService from '../services/tournamentService';
 import * as registrationService from '../services/registrationService';
 import * as roleService from '../services/tournamentUserRoleService';
 import * as matchService from '../services/matchService';
+import { listNotifications, markRead } from '../services/notificationService';
+import { guardianApi } from '../services/guardianService';
 import Breadcrumbs from '../components/Breadcrumbs';
 import TournamentMatches from '../components/TournamentMatches';
 import AssignRefereeModal from '../components/AssignRefereeModal';
 import GroupStandings from '../components/GroupStandings';
+import GuardianPickerModal from '../components/GuardianPickerModal.jsx';
+import TournamentStatusBanner, { getTournamentLocks } from '../components/TournamentStatusBanner';
+
 
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -26,6 +31,7 @@ export default function TournamentDetailsPage() {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [myRoles, setMyRoles] = useState([]);
 
   const [registrationStatus, setRegistrationStatus] = useState(null);
   const [registrationId, setRegistrationId] = useState(null);
@@ -39,6 +45,84 @@ export default function TournamentDetailsPage() {
   const [isRoleModalOpen, setRoleModalOpen] = useState(false);
   const [roles, setRoles] = useState([]);
   const [isRefereeModalOpen, setRefereeModalOpen] = useState(false);
+
+  const [isGuardianModalOpen, setGuardianModalOpen] = useState(false);
+  const [guardianPlayerId, setGuardianPlayerId] = useState(null); // dla kogo dodajemy opiekuna
+  const [guardians, setGuardians] = useState([]);                  // lista opiekunów tego zawodnika
+  const [guardiansLoading, setGuardiansLoading] = useState(false);
+  const [myGuardianInvite, setMyGuardianInvite] = useState(null);
+  const [myRefInvite, setMyRefInvite] = useState(null);
+  const [myGuardianLink, setMyGuardianLink] = useState(null);
+  const { isHidden, isDeleted, readOnly, signOff } = getTournamentLocks(tournament);
+
+
+  const refreshGuardians = useCallback(async (pid = guardianPlayerId) => {
+    if (!tournament?.id || !pid) return;
+    setGuardiansLoading(true);
+    try {
+      const rows = await guardianApi.list({ tid: tournament.id, playerId: pid });
+      setGuardians(rows || []);
+    } catch (e) {
+      console.error(e);
+      setGuardians([]);
+    } finally {
+      setGuardiansLoading(false);
+    }
+  }, [tournament?.id, guardianPlayerId]);
+
+  useEffect(() => {
+    (async () => {
+      if (!user || !tournament?.id) {
+        setMyGuardianLink(null);
+        return;
+      }
+      try {
+        const rows = await guardianApi.list({ tid: tournament.id });
+        const mine = (rows || []).find(
+          r => r.guardianUserId === user.id && r.status === 'accepted'
+        );
+        setMyGuardianLink(mine || null);
+      } catch {
+        setMyGuardianLink(null);
+      }
+    })();
+  }, [user, tournament?.id]);
+
+
+  useEffect(() => {
+    (async () => {
+      if (!user || !tournament) return;
+      const rows = await guardianApi.list({ tid: tournament.id });
+      const mine = (rows || []).find(r => r.guardianUserId === user.id && r.status === 'invited');
+      setMyGuardianInvite(mine || null);
+    })();
+  }, [user, tournament]);
+
+  useEffect(() => {
+    if (!tournament?.id || !user?.id) return;
+    setGuardianPlayerId(user.id);      // „mój” widok opiekunów
+    refreshGuardians(user.id);         // od razu pobierz listę
+  }, [tournament?.id, user?.id, refreshGuardians]);
+
+
+  // Referee invite – pokaż kartę akceptacji na stronie
+  useEffect(() => {
+    (async () => {
+      if (!user || !tournament) return;
+      try {
+        const rows = await listNotifications();
+        const n = (rows || []).find(
+          x => !x.readAt &&
+            x.type === 'referee_invite' &&
+            (x.meta?.tournamentId === tournament.id ||
+              x.metaJson?.tournamentId === tournament.id)
+        );
+        setMyRefInvite(n || null);
+      } catch {
+        setMyRefInvite(null);
+      }
+    })();
+  }, [user, tournament]);
 
   // ====== Fetch turnieju ======
   useEffect(() => {
@@ -91,10 +175,49 @@ export default function TournamentDetailsPage() {
     fetchMyRegistration();
     fetchAcceptedCount();
     roleService
-      .listRoles(tournament.id)
-      .then(setRoles)
-      .catch(() => setRoles([]));
+    // Lista ról jest tylko dla organizatora – dla reszty pomijamy i nie hałasujemy 403.
+    if (user?.id === tournament.organizer_id) {
+      roleService.listRoles(tournament.id)
+        .then(setRoles)
+        .catch(() => setRoles([]));
+    } else {
+      // nic nie rób – role zostaną uzupełnione tylko, jeśli wcześniej były w stanie
+    }
   }, [tournament, fetchMyRegistration, fetchAcceptedCount]);
+
+  useEffect(() => {
+    if (!user || !tournament?.id) return;
+    roleService.getMyRoles(tournament.id)
+      .then(setMyRoles)
+      .catch(() => setMyRoles([]));
+  }, [user, tournament?.id]);
+
+  const amReferee = myRoles.some(r => r.role === 'referee');
+
+  const acceptRefereeOnPage = async () => {
+    try {
+      await roleService.acceptRefereeInvite(tournament.id);
+      if (myRefInvite) await markRead(myRefInvite.id);
+      setMyRefInvite(null);
+      toast.success('Dołączyłeś jako sędzia');
+      // Opcjonalnie zdejmij/uzupełnij role lokalnie, by zniknął/przybył przycisk itp.
+      setRoles(prev => [...prev, { id: `tmp-${Date.now()}`, role: 'referee', user }]);
+    } catch (e) {
+      toast.error(e?.message || 'Nie udało się zaakceptować');
+    }
+  };
+
+  const declineRefereeOnPage = async () => {
+    try {
+      await roleService.declineRefereeInvite(tournament.id);
+      if (myRefInvite) await markRead(myRefInvite.id);
+      setMyRefInvite(null);
+      toast.info('Odrzucono zaproszenie');
+    } catch (e) {
+      toast.error(e?.message || 'Nie udało się odrzucić');
+    }
+  };
+
 
   // ====== Guardy i pomocnicze ======
   if (loading) return <p>Ładowanie…</p>;
@@ -155,8 +278,8 @@ export default function TournamentDetailsPage() {
     return new Date() <= end;
   })();
 
-  // Czy w ogóle można się rejestrować teraz (czas/miejsca)
-  const canRegisterNow = Boolean(applicationsOpen && deadlineOK && capacityOK);
+  // Czy w ogóle można się rejestrować teraz (czas/miejsca + blokady)
+  const canRegisterNow = Boolean(!readOnly && applicationsOpen && deadlineOK && capacityOK);
 
   // Prewalidacja płci (nie blokuj jeśli nie znamy płci usera – niech backend rozstrzygnie)
   const canPrevalidate = !!userGender;
@@ -189,9 +312,34 @@ export default function TournamentDetailsPage() {
   const categoryChips = getCategoryChips(tournament);
   const genderChips = computeGenderChips(tournament);
 
+
+  const openGuardianModalFor = (pid) => {
+    setGuardianPlayerId(pid);
+    setGuardianModalOpen(true);
+    // odśwież listę dla tego zawodnika
+    refreshGuardians(pid);
+  };
+
+  const removeGuardian = async (gId) => {
+    if (!window.confirm('Usunąć opiekuna?')) return;
+    try {
+      await guardianApi.remove(gId);
+      await refreshGuardians();
+      toast.success('Usunięto opiekuna');
+      setTimeout(() => window.location.reload(), 300);
+    } catch (e) {
+      toast.error(e?.message || 'Błąd usuwania');
+    }
+  };
+
+
   // ====== Handlery ======
   const handleRegister = async () => {
-    // twarde stopery BEZ API
+    // twarde stopery BEZ API (kolejność: RO → zapisy → deadline → limit)
+    if (readOnly) {
+      toast.error('Turniej jest zablokowany.');
+      return;
+    }
     if (!applicationsOpen) {
       toast.error('Zgłoszenia są zamknięte.');
       return;
@@ -294,6 +442,35 @@ export default function TournamentDetailsPage() {
     }
   };
 
+  const handleResignAsReferee = async () => {
+    if (!window.confirm('Na pewno chcesz się wypisać z roli sędziego w tym turnieju?')) return;
+    try {
+      await roleService.resignAsReferee(tournament.id);
+      toast.success('Wypisano z roli sędziego');
+      // ⚠️ Bez ponownego calla do /roles (organizer-only) – zdejmij rolę lokalnie
+      setRoles(prev => prev.filter(r => !(r.role === 'referee' && r.user?.id === user?.id)));
+      setTimeout(() => window.location.reload(), 300);
+    } catch (e) {
+      toast.error(e?.message || 'Nie udało się wypisać');
+    }
+  };
+
+  const handleResignAsGuardian = async () => {
+    if (!myGuardianLink?.id) return;
+    if (!window.confirm('Na pewno chcesz się wypisać jako opiekun w tym turnieju?')) return;
+    try {
+      await guardianApi.remove(myGuardianLink.id); // DELETE /api/guardians/:id
+      toast.success('Wypisano z roli opiekuna');
+      setMyGuardianLink(null);
+      // ewentualnie odśwież listy opiekunów, jeśli są otwarte:
+      refreshGuardians();
+      setTimeout(() => window.location.reload(), 300);
+    } catch (e) {
+      toast.error(e?.message || 'Nie udało się wypisać jako opiekun');
+    }
+  };
+
+
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success('Link skopiowany!');
@@ -369,6 +546,7 @@ export default function TournamentDetailsPage() {
       <div className="details-grid">
         <div className="left-panel">
           <h1 className="details-title">{name}</h1>
+          <TournamentStatusBanner tournament={tournament} />
           {description && <p className="details-description">{description}</p>}
 
           <div className="chips">
@@ -417,6 +595,9 @@ export default function TournamentDetailsPage() {
       </div>
 
       <div className="public-actions">
+        {readOnly && (
+          <p className="muted">Ten turniej jest zablokowany — akcje uczestników są niedostępne.</p>
+        )}
         {!isLoggedIn && <p>Musisz się <a href="/login">zalogować</a>.</p>}
 
         {isLoggedIn && registrationStatus === 'invited' && (
@@ -443,17 +624,19 @@ export default function TournamentDetailsPage() {
               <button
                 className="btn-primary"
                 onClick={handleRegister}
-                disabled={!canRegisterNow || genderConflict}
+                disabled={readOnly || !canRegisterNow || genderConflict}
                 title={
-                  !applicationsOpen
-                    ? 'Zgłoszenia zamknięte'
-                    : !deadlineOK
-                      ? 'Po terminie'
-                      : !capacityOK
-                        ? 'Brak miejsc'
-                        : genderConflict
-                          ? `Ten turniej jest wyłącznie dla ${genderPolish(requiredGender)}.`
-                          : undefined
+                  readOnly
+                    ? 'Turniej zablokowany'
+                    : !applicationsOpen
+                      ? 'Zgłoszenia zamknięte'
+                      : !deadlineOK
+                        ? 'Po terminie'
+                        : !capacityOK
+                          ? 'Brak miejsc'
+                          : genderConflict
+                            ? `Ten turniej jest wyłącznie dla ${genderPolish(requiredGender)}.`
+                            : undefined
                 }
               >
                 Zgłoś udział
@@ -478,6 +661,107 @@ export default function TournamentDetailsPage() {
         )}
       </div>
 
+      {isLoggedIn && registrationStatus === 'accepted' && (
+        <div style={{ marginTop: 8 }}>
+          <button className="btn-primary" onClick={() => openGuardianModalFor(user.id)} disabled={readOnly}
+            title={readOnly ? 'Turniej zablokowany' : undefined}>
+            Dodaj opiekuna
+          </button>
+        </div>
+      )}
+      {(guardiansLoading || guardians.length > 0) && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="card-header">Opiekunowie zawodnika</div>
+          <div className="card-body">
+            {guardiansLoading ? (
+              <div className="muted">Ładowanie…</div>
+            ) : (
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {guardians.map(g => (
+                  <li key={g.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                    <span>
+                      {g.guardian ? `${g.guardian.name} ${g.guardian.surname}` : '—'}{' '}
+                      <span className="muted">({g.status})</span>
+                    </span>
+                    <button className="btn-secondary" onClick={() => removeGuardian(g.id)}>
+                      Usuń
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isLoggedIn && myGuardianLink && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-header">Twoja rola opiekuna</div>
+          <div className="card-body">
+            Jesteś opiekunem zawodnika{' '}
+            <strong>
+              {myGuardianLink.player?.name} {myGuardianLink.player?.surname}
+            </strong>
+            .
+            <div style={{ marginTop: 8 }}>
+              <button className="btn-secondary" onClick={handleResignAsGuardian}>
+                Wypisz się jako opiekun
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {isLoggedIn && myGuardianInvite && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-header">Zaproszenie jako opiekun</div>
+          <div className="card-body">
+            Zaproszono Cię jako opiekuna zawodnika <strong>{myGuardianInvite.player?.name} {myGuardianInvite.player?.surname}</strong>.
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <button className="btn-primary" onClick={async () => {
+                await guardianApi.accept(myGuardianInvite.id);
+                toast.success('Przyjęto zaproszenie opiekuna');
+                setMyGuardianInvite(null);
+              }}>Akceptuj</button>
+              <button className="btn-secondary" onClick={async () => {
+                await guardianApi.decline(myGuardianInvite.id);
+                toast.info('Odrzucono zaproszenie');
+                setMyGuardianInvite(null);
+              }}>Odrzuć</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoggedIn && myRefInvite && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-header">Zaproszenie do sędziowania</div>
+          <div className="card-body">
+            Organizator zaprasza Cię do sędziowania tego turnieju.
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <button className="btn-primary" onClick={acceptRefereeOnPage} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>Akceptuj</button>
+              <button className="btn-secondary" onClick={declineRefereeOnPage}>Odrzuć</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoggedIn && amReferee && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-header">Twoja rola sędzia</div>
+          <div className="card-body">
+            <div style={{ marginTop: 8 }}>
+              <button className="btn-secondary" onClick={handleResignAsReferee} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
+                Wypisz się jako sędzia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {(isCreator || isTournyOrg) && (
         <div className="organizer-section">
           <div className="organizer-list">
@@ -496,7 +780,8 @@ export default function TournamentDetailsPage() {
                       {r.user.name} {r.user.surname}
                     </span>
                     {r.user.id !== user.id && (
-                      <button className="btn-delete" onClick={() => handleRemoveOrganizer(r.id)}>
+                      <button className="btn-delete" onClick={() => handleRemoveOrganizer(r.id)} disabled={readOnly}
+                        title={readOnly ? 'Turniej zablokowany' : undefined}>
                         Usuń
                       </button>
                     )}
@@ -508,23 +793,29 @@ export default function TournamentDetailsPage() {
           <div className="organizer-actions">
             <h2>Opcje organizatora:</h2>
             <div className="actions-toolbar">
-              <button className="btn-secondary" onClick={() => navigate(`/tournaments/${tournament.id}/edit`)}>
+              <button className="btn-secondary" onClick={() => navigate(`/tournaments/${tournament.id}/edit`)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Edytuj turniej
               </button>
-              <button className="btn-delete" onClick={handleDelete}>
+              <button className="btn-delete" onClick={handleDelete} disabled={readOnly}
+                title={readOnly ? 'Turniej jest już usunięty' : undefined}>
                 Usuń turniej
               </button>
-              <button className="btn-primary" onClick={() => setPlayerModalOpen(true)}>
+              <button className="btn-primary" onClick={() => setPlayerModalOpen(true)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Dodaj zawodnika
               </button>
-              <button className="btn-primary" onClick={() => navigate(`/tournaments/${tournament.id}/manage/registrations`)}>
+              <button className="btn-primary" onClick={() => navigate(`/tournaments/${tournament.id}/manage/registrations`)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Zarządzaj zgłoszeniami
               </button>
-              <button className="btn-primary" onClick={handleGenerateMatches}>
+              <button className="btn-primary" onClick={handleGenerateMatches} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Generuj mecze
               </button>
-              <button className="btn-primary" onClick={() => setRefereeModalOpen(true)}>
-                Przydziel sędziego
+              <button className="btn-primary" onClick={() => setRefereeModalOpen(true)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
+                Zaproś sędziego
               </button>
             </div>
           </div>
@@ -554,6 +845,19 @@ export default function TournamentDetailsPage() {
         tournamentId={tournament.id}
         onChanged={refreshRoles}
       />
+
+      <GuardianPickerModal
+        isOpen={isGuardianModalOpen}
+        onClose={() => setGuardianModalOpen(false)}
+        tournamentId={tournament.id}
+        playerId={guardianPlayerId}
+        existingIds={new Set([
+          guardianPlayerId,                                 // nie pozwól wybrać samego siebie
+          ...guardians.map(g => g.guardianUserId).filter(Boolean) // już przypięci
+        ])}
+        onChanged={() => refreshGuardians()}
+      />
+
 
       <GroupStandings tournamentId={tournament.id} isOrganizer={isCreator || isTournyOrg} />
 
