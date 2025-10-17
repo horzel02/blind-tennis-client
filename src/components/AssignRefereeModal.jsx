@@ -15,7 +15,7 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
   async function load() {
     try {
       setLoading(true);
-      const r = await roleService.listRoles(tournamentId); // aktywni sędziowie
+      const r = await roleService.listRoles(tournamentId);
       setRoles(r || []);
     } catch (e) {
       toast.error(e.message || 'Błąd ładowania sędziów');
@@ -30,7 +30,7 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
     load();
   }, [isOpen, tournamentId]);
 
-  // Zaproszenie (wysyłamy invite — akceptacja przyjdzie z dzwonka)
+  // Zaproszenie
   const handleInviteReferee = async (u) => {
     try {
       await roleService.inviteReferee(tournamentId, u.id);
@@ -42,7 +42,7 @@ export default function AssignRefereeModal({ isOpen, onClose, tournamentId, onCh
     }
   };
 
-  // Usunięcie aktywnego sędziego (rola już istnieje)
+  // Usunięcie aktywnego sędziego
   const handleRemoveReferee = async (userId) => {
     if (!window.confirm('Usunąć tego sędziego z turnieju?')) return;
     try {

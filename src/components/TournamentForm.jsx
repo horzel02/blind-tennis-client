@@ -31,6 +31,7 @@ export default function TournamentForm({
     description: '',
     category: '',
     gender: '',
+    formula: 'open',
     start_date: '',
     end_date: '',
     registration_deadline: '',
@@ -72,26 +73,25 @@ export default function TournamentForm({
       if (!form.start_date || !form.end_date) return false;
     }
     if (s === 3) {
-      // KO ONLY → participant_limit musi być z ALLOWED_BRACKETS
+      // KO ONLY 
       if (isKOonly) {
         const lim = toInt(form.participant_limit);
         if (!lim || !ALLOWED_BRACKETS.includes(lim)) return false;
       }
 
-      // GROUPS+KO → walidacje jak wcześniej
+      // GROUPS+KO
       if (isGroupsKO) {
-        if (![3,4].includes(Number(form.groupSize))) return false;
-        if (![1,2].includes(Number(form.qualifiersPerGroup))) return false;
+        if (![3, 4].includes(Number(form.groupSize))) return false;
+        if (![1, 2].includes(Number(form.qualifiersPerGroup))) return false;
         const limit = Number(form.participant_limit);
         if (!limit || limit < 2) return false;
         if (limit && Number(form.groupSize) && (limit % Number(form.groupSize) !== 0)) return false;
 
-        // jeśli BYE wyłączone → K musi być potęgą 2
         if (!form.allowByes) {
           const groups = limit / Number(form.groupSize);
           if (!Number.isInteger(groups)) return false;
           const K = Number(groups) * Number(form.qualifiersPerGroup || 0);
-          if (![2,4,8,16,32,64,128].includes(K)) return false;
+          if (![2, 4, 8, 16, 32, 64, 128].includes(K)) return false;
         }
       }
     }
@@ -106,6 +106,7 @@ export default function TournamentForm({
         ...initialData,
         format: fmt,
         isGroupPhase: fmt === 'GROUPS_KO',
+        formula: initialData.formula ?? initialData.type ?? 'open',
       });
     }
   }, [initialData]);
@@ -144,7 +145,7 @@ export default function TournamentForm({
         ...f,
         participant_limit: f.participant_limit && ALLOWED_BRACKETS.includes(Number(f.participant_limit))
           ? f.participant_limit
-          : 32 // sensowna domyślna drabinka
+          : 32
       }));
     }
   }, [isKOonly]);
@@ -211,7 +212,7 @@ export default function TournamentForm({
     isGroupsKO &&
     !form.allowByes &&
     K != null &&
-    ![2,4,8,16,32,64,128].includes(K);
+    ![2, 4, 8, 16, 32, 64, 128].includes(K);
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
@@ -273,6 +274,16 @@ export default function TournamentForm({
               {['M', 'W', 'Coed'].map(g =>
                 <option key={g} value={g}>{g}</option>
               )}
+            </select>
+            <label htmlFor="formula">Formuła</label>
+            <select
+              id="formula"
+              value={form.formula}
+              onChange={e => setForm(f => ({ ...f, formula: e.target.value }))}
+            >
+              <option value="open">Open</option>
+              <option value="towarzyski">Towarzyski</option>
+              <option value="mistrzowski">Mistrzowski</option>
             </select>
             <label htmlFor="description">Opis (opcjonalnie)</label>
             <textarea

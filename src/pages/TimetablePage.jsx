@@ -12,7 +12,6 @@ function fmtDT(dt) {
   try {
     const d = new Date(dt);
     if (Number.isNaN(d.getTime())) return null;
-    // bez sekund
     return d.toLocaleString(undefined, {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit'
@@ -42,8 +41,8 @@ function scoreLine(m) {
 
 export default function TimetablePage() {
   const { user } = useAuth();
-  const [role, setRole] = useState('player');        // 'player' | 'referee' | 'guardian'
-  const [state, setState] = useState('upcoming');    // 'upcoming'|'live'|'finished'
+  const [role, setRole] = useState('player');
+  const [state, setState] = useState('upcoming');
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -100,7 +99,6 @@ export default function TimetablePage() {
     return () => obs.disconnect();
   }, [items.length, total, loading, loadingMore]);
 
-  // when page increments (after sentinel), load more
   useEffect(() => {
     if (page > 1) fetchList(false);
   }, [page, fetchList]);

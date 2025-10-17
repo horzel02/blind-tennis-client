@@ -5,7 +5,6 @@ const TOURNAMENTS_API = `${API_BASE_URL}/api/tournaments`;
 async function jfetch(url, opts = {}) {
   const res = await fetch(url, { credentials: 'include', ...opts });
   if (!res.ok) {
-    // spróbuj JSON – jak nie, to tekst
     let msg = 'Błąd żądania';
     try { const j = await res.json(); msg = j.error || msg; }
     catch { msg = await res.text(); }
@@ -67,14 +66,12 @@ export async function getTournamentSettings(tournamentId) {
 
 /* ----- GENERATORY / KO / RESETY ----- */
 
-// BE route: POST /api/tournaments/:tournamentId/generate-matches
 export async function generateGroupsAndKO(tournamentId) {
   return jfetch(`${TOURNAMENTS_API}/${tournamentId}/generate-matches`, {
     method: 'POST',
   });
 }
 
-// BE route: POST /api/tournaments/:tournamentId/seed-knockout
 export async function seedKnockout(tournamentId, body = {}) {
   return jfetch(`${TOURNAMENTS_API}/${tournamentId}/seed-knockout`, {
     method: 'POST',
@@ -83,14 +80,12 @@ export async function seedKnockout(tournamentId, body = {}) {
   });
 }
 
-// BE route: POST /api/tournaments/:id/generate-ko-only   (myślnik!)
 export async function generateKnockoutOnly(tournamentId) {
   return jfetch(`${TOURNAMENTS_API}/${tournamentId}/generate-ko-only`, {
     method: 'POST',
   });
 }
 
-// BE route: POST /api/tournaments/:tournamentId/reset-knockout
 export async function resetKnockoutFromRound(tournamentId, fromLabel) {
   return jfetch(`${TOURNAMENTS_API}/${tournamentId}/reset-knockout`, {
     method: 'POST',

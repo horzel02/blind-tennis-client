@@ -50,6 +50,22 @@ export default function TournamentFilters({
         ))}
       </fieldset>
 
+      <fieldset className="filter-group">
+        <legend>Formuła</legend>
+        {['open', 'towarzyski', 'mistrzowski'].map(key => (
+          <label key={key} className="filter-item">
+            <input
+              type="checkbox"
+              name="formula"
+              value={key}
+              checked={filters.formula?.includes(key)}
+              onChange={handleCheckboxChange}
+            />
+            {key === 'open' ? 'Open' : key === 'towarzyski' ? 'Towarzyski' : 'Mistrzowski'}
+          </label>
+        ))}
+      </fieldset>
+
       {/* Płeć */}
       <fieldset className="filter-group">
         <legend>Płeć</legend>
@@ -58,11 +74,11 @@ export default function TournamentFilters({
             <input
               type="checkbox"
               name="gender"
-              value={g}                    // <- wartości 'M','W','Coed'
+              value={g}
               checked={filters.gender.includes(g)}
               onChange={handleCheckboxChange}
             />
-            {genderLabelPL(g)}            {/* ładna etykieta */}
+            {genderLabelPL(g)}
           </label>
         ))}
       </fieldset>

@@ -1,4 +1,3 @@
-// client/src/components/TournamentMatches.jsx
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -12,6 +11,7 @@ import * as roleService from '../services/tournamentUserRoleService';
 import ScheduleMatchModal from '../components/ScheduleMatchModal';
 import AutoScheduleModal from '../components/AutoScheduleModal';
 
+import TournamentStatusBanner, { getTournamentLocks } from '../components/TournamentStatusBanner';
 
 import '../styles/tournamentMatches.css';
 
@@ -71,8 +71,9 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // settings
+  // ustawienia turnieju (format itp.)
   const [settings, setSettings] = useState(null);
+  const [tournament, setTournament] = useState(null);
 
   // reset KO
   const [resetFrom, setResetFrom] = useState('');
@@ -84,7 +85,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
   // modal: przypisywanie sędziego z puli
   const [refModalOpen, setRefModalOpen] = useState(false);
-  const [referees, setReferees] = useState([]); // [{id, name, surname, email}]
+  const [referees, setReferees] = useState([]);
   const [refSearch, setRefSearch] = useState('');
   const [chosenRef, setChosenRef] = useState(null);
   const [refLoading, setRefLoading] = useState(false);
@@ -122,9 +123,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     () => !!user && roles.some(r => r.role === 'referee' && r.user?.id === user.id),
     [roles, user]
   );
+
+  const locks = useMemo(() => getTournamentLocks(tournament || {}), [tournament]);
+  const { readOnly } = locks;
+
   const canScore = useCallback(
-    (match) => !!user && isTournyReferee && match?.referee?.id === user.id,
-    [user, isTournyReferee]
+    (match) => !!user && isTournyReferee && match?.referee?.id === user.id && !readOnly,
+    [user, isTournyReferee, readOnly]
   );
 
   const fmtDT = v =>
@@ -139,14 +144,12 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
     const now = new Set(matches.map(m => m.id));
 
-    // dołącz do nowych pokoi
     for (const mid of now) {
       if (!joinedRoomsRef.current.has(mid)) {
         s.emit('join-match', mid);
         joinedRoomsRef.current.add(mid);
       }
     }
-    // opuść pokoje, których już nie ma na liście
     for (const mid of [...joinedRoomsRef.current]) {
       if (!now.has(mid)) {
         s.emit('leave-match', mid);
@@ -155,19 +158,21 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     }
   }, [matches]);
 
-
-  // ustawienia
+  // ustawienia + detale turnieju
   useEffect(() => {
     let alive = true;
+
     tournamentService
       .getTournamentSettings(tournamentId)
-      .then((s) => {
-        if (alive) setSettings(s);
-      })
-      .catch(() => setSettings({ format: 'GROUPS_KO' })); // fallback, ale panel i tak ukryty gdy brak roli
-    return () => {
-      alive = false;
-    };
+      .then((s) => { if (alive) setSettings(s); })
+      .catch(() => setSettings({ format: 'GROUPS_KO' }));
+
+    tournamentService
+      .getTournamentById(tournamentId)
+      .then((t) => { if (alive) setTournament(t); })
+      .catch(() => setTournament(null));
+
+    return () => { alive = false; };
   }, [tournamentId]);
 
   const groupMatchesByRound = useCallback((list) => {
@@ -186,7 +191,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
         arr.length > 0 &&
         arr.every((m) => m.status === 'scheduled' && !m.player1Id && !m.player2Id);
       const koRound = /(1\/(8|16|32|64)\s*finału|ćwierćfinał|półfinał|finał)/i.test(roundName);
-      if (!koRound && allTBD) continue; // chowamy puste grupy, KO zostawiamy
+      if (!koRound && allTBD) continue;
       out[roundName] = arr;
     }
     return out;
@@ -201,9 +206,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
       setGroupedMatches(groupMatchesByRound(fetched));
       setError(null);
     } catch (err) {
-      setError(
-        err.message || 'Błąd podczas ładowania meczów. Sprawdź, czy jesteś zalogowany.'
-      );
+      setError(err.message || 'Błąd podczas ładowania meczów. Sprawdź, czy jesteś zalogowany.');
       setMatches([]);
       setGroupedMatches({});
       fetched = [];
@@ -212,17 +215,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
       setSelected((prev) => {
         const ids = new Set(fetched.map((m) => m.id));
         const next = new Set();
-        prev.forEach((id) => {
-          if (ids.has(id)) next.add(id);
-        });
+        prev.forEach((id) => { if (ids.has(id)) next.add(id); });
         return next;
       });
     }
   }, [tournamentId, activeTab, groupMatchesByRound]);
 
-  useEffect(() => {
-    fetchForTab();
-  }, [fetchForTab]);
+  useEffect(() => { fetchForTab(); }, [fetchForTab]);
 
   // KO reset – dostępne rundy
   const availableResetRounds = useMemo(() => {
@@ -242,9 +241,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
   // sockets
   const onInvalidate = useCallback(() => {
-    setTimeout(() => {
-      fetchForTab();
-    }, 50);
+    setTimeout(() => { fetchForTab(); }, 50);
   }, [fetchForTab]);
 
   useEffect(() => {
@@ -302,11 +299,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
       setMatches(prev =>
         prev.map(m => {
           if (m.id !== matchId) return m;
-
-          const incoming = Array.isArray(sets) && sets.length
-            ? sets
-            : [{ p1: 0, p2: 0 }]; // <-- pokaż 0-0 od razu, zanim ktoś wpisze punkt
-
+          const incoming = Array.isArray(sets) && sets.length ? sets : [{ p1: 0, p2: 0 }];
           return {
             ...m,
             matchSets: incoming.map((s, i) => ({
@@ -348,16 +341,10 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     setGroupedMatches(groupMatchesByRound(matches));
   }, [matches, groupMatchesByRound]);
 
-
   function resultBadge(m) {
     if (m.status !== 'finished') return null;
     if (!m.resultType || m.resultType === 'NORMAL') return null;
-
-    const map = {
-      WALKOVER: 'Walkower',
-      DISQUALIFICATION: 'Dyskwalifikacja',
-      RETIREMENT: 'Krecz',
-    };
+    const map = { WALKOVER: 'Walkower', DISQUALIFICATION: 'Dyskwalifikacja', RETIREMENT: 'Krecz' };
     const label = map[m.resultType] || m.resultType;
     const w = m.winner ? ` – ${m.winner.name} ${m.winner.surname}` : '';
     return <span className="badge badge-warning">{label}{w}</span>;
@@ -369,12 +356,19 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
   const hasGroupMatches = useMemo(() => matches.some((m) => !isKO(m.round)), [matches]);
 
+  const guardReadOnly = () => {
+    if (readOnly) {
+      toast.error('Turniej jest zablokowany.');
+      return true;
+    }
+    return false;
+  };
+
   const handleGenerateGroups = async () => {
+    if (guardReadOnly()) return;
     try {
       const res = await matchService.generateGroupsAndKO(tournamentId);
-      toast.success(
-        `Wygenerowano fazę grupową + szkielet KO (${res?.count ?? '?'} meczów).`
-      );
+      toast.success(`Wygenerowano fazę grupową + szkielet KO (${res?.count ?? '?' } meczów).`);
       await fetchForTab();
     } catch (e) {
       toast.error(e.message || 'Błąd generowania grup/KO');
@@ -382,12 +376,10 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   };
 
   const handleSeedKO = async () => {
+    if (guardReadOnly()) return;
     try {
       const res = await matchService.seedKnockout(tournamentId, { overwrite: true });
-      toast.success(
-        `Zasiano KO od ${res?.baseRound || 'rundy'} (zaktualizowano ${res?.updated ?? res?.changed ?? '?'
-        } meczów).`
-      );
+      toast.success(`Zasiano KO od ${res?.baseRound || 'rundy'} (zaktualizowano ${res?.updated ?? res?.changed ?? '?' } meczów).`);
       await fetchForTab();
     } catch (e) {
       toast.error(e.message || 'Błąd zasiewania KO');
@@ -395,6 +387,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   };
 
   const handleGenerateKOOnly = async () => {
+    if (guardReadOnly()) return;
     try {
       const res = await matchService.generateKnockoutOnly(tournamentId);
       toast.success(`Wygenerowano drabinkę KO (pary R1: ${res?.created ?? '?'}).`);
@@ -404,8 +397,8 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     }
   };
 
-  // Pusta drabinka KO
   const handleGenerateKOSkeleton = async () => {
+    if (guardReadOnly()) return;
     try {
       const res = await matchService.generateKnockoutSkeleton(tournamentId);
       toast.success(`Utworzono pustą drabinkę KO od ${res?.baseRound || 'rundy'}.`);
@@ -416,13 +409,12 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   };
 
   const handleResetGroups = async () => {
+    if (guardReadOnly()) return;
     if (!confirm('Na pewno usunąć WSZYSTKIE mecze fazy grupowej?')) return;
     setResetBusy(true);
     try {
       const res = await matchService.resetGroupPhase(tournamentId, alsoKO);
-      toast.success(
-        `Usunięto ${res?.cleared ?? 0} meczów grupowych${alsoKO ? ' + KO' : ''}.`
-      );
+      toast.success(`Usunięto ${res?.cleared ?? 0} meczów grupowych${alsoKO ? ' + KO' : ''}.`);
       await fetchForTab();
     } catch (e) {
       toast.error(e.message || 'Błąd usuwania meczów grupowych');
@@ -432,6 +424,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   };
 
   const handleResetKO = async () => {
+    if (guardReadOnly()) return;
     if (!resetFrom) return;
     if (!confirm(`Na pewno zresetować KO od rundy: ${resetFrom}?`)) return;
     try {
@@ -456,24 +449,20 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     });
   };
   const selectAllVisible = () => {
-    const ids = Object.values(visibleGroups)
-      .flat()
-      .map((m) => m.id);
+    const ids = Object.values(visibleGroups).flat().map((m) => m.id);
     setSelected(new Set(ids));
   };
   const clearSelection = () => setSelected(new Set());
   const anySelected = selected.size > 0;
 
   const openRefModal = async () => {
+    if (guardReadOnly()) return;
     setRefModalOpen(true);
     setRefLoading(true);
     try {
       const r = await roleService.listRoles(tournamentId);
-      const pool = (r || [])
-        .filter((x) => x.role === 'referee')
-        .map((x) => x.user)
-        .filter(Boolean);
-      const map = new Map(pool.map((u) => [u.id, u])); // unikaty
+      const pool = (r || []).filter((x) => x.role === 'referee').map((x) => x.user).filter(Boolean);
+      const map = new Map(pool.map((u) => [u.id, u]));
       setReferees(Array.from(map.values()));
     } catch {
       setReferees([]);
@@ -497,12 +486,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   }, [referees, refSearch]);
 
   const saveRefAssign = async () => {
+    if (guardReadOnly()) return;
     const ids = Array.from(selected);
     if (!ids.length) {
       toast.info('Zaznacz mecze.');
       return;
     }
-    const refId = chosenRef?.id ?? null; // null => usuwamy sędziego
+    const refId = chosenRef?.id ?? null;
     try {
       const out = await matchService.assignRefereeBulk({
         tournamentId,
@@ -512,10 +502,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
       const { updated = 0, skipped = [] } = out || {};
       if (refId) {
         if (updated) toast.success(`Przypisano sędziego w ${updated} meczach.`);
-        if (skipped.length)
-          toast.warn(
-            `Pominięto ${skipped.length} (sędzia był jednocześnie zawodnikiem).`
-          );
+        if (skipped.length) toast.warn(`Pominięto ${skipped.length} (konflikt ról).`);
       } else {
         toast.success(`Usunięto sędziów w ${updated} meczach.`);
       }
@@ -543,10 +530,8 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
   useEffect(() => {
     const prev = document.body.style.overflow;
-    document.body.style.overflow = pairingOpen || refModalOpen ? 'hidden' : prev || '';
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    document.body.style.overflow = (pairingOpen || refModalOpen) ? 'hidden' : prev || '';
+    return () => { document.body.style.overflow = prev; };
   }, [pairingOpen, refModalOpen]);
 
   const filterEligible = (q, excludeId) => {
@@ -560,13 +545,12 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
       });
   };
 
-
   const openPairingModal = async (match) => {
+    if (guardReadOnly()) return;
     setPairingMatch(match);
     setPairingOpen(true);
     try {
       const list = await matchService.getEligiblePlayersForMatch(match.id);
-      // normalizacja dowolnego kształtu odpowiedzi (users / players / raw)
       const arr =
         Array.isArray(list) ? list
           : Array.isArray(list?.users) ? list.users
@@ -617,13 +601,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
   };
 
   const savePairing = async () => {
+    if (guardReadOnly()) return;
     if (p1User && p2User && p1User.id === p2User.id) {
       toast.error('Ten sam zawodnik po obu stronach');
       return;
     }
     if (!pairingMatch) return;
 
-    // zbuduj payload tylko z tego, co się zmieniło względem stanu meczu
     const payload = {};
     const oldP1 = pairingMatch.player1?.id ?? null;
     const oldP2 = pairingMatch.player2?.id ?? null;
@@ -643,7 +627,6 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     }
   };
 
-
   const currentBaseRound = useMemo(
     () => baseRoundName(pairingMatch?.round || ''),
     [pairingMatch]
@@ -657,7 +640,6 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
       (m.player1?.id === userId || m.player2?.id === userId)
     );
   }, [matches, pairingMatch, currentBaseRound]);
-
 
   /* ============================================================================
    *  RENDER
@@ -677,6 +659,8 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => toggleSelected(match.id)}
+                disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}
               />
               <span>Zaznacz</span>
             </label>
@@ -686,8 +670,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
             <span className="match-round">{match.round}</span>
             <span className="match-category">
               {match.category
-                ? `${match.category.gender === 'male' ? 'Mężczyźni' : 'Kobiety'
-                } ${match.category.categoryName}`
+                ? `${match.category.gender === 'male' ? 'Mężczyźni' : 'Kobiety'} ${match.category.categoryName}`
                 : 'Brak kategorii'}
             </span>
           </div>
@@ -728,18 +711,17 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
         {match.matchTime
           ? <div className="pill pill-time">
-            {fmtDT(match.matchTime)} {match.courtNumber ? `• Kort ${match.courtNumber}` : ''}
-          </div>
+              {fmtDT(match.matchTime)} {match.courtNumber ? `• Kort ${match.courtNumber}` : ''}
+            </div>
           : <div className="pill pill-muted">Termin: TBA</div>
         }
 
-
         {match.status === 'finished' && match.resultType && match.resultType !== 'NORMAL' && (
           <div className="pill pill-admin">
-            {match.resultType === 'WALKOVER' ? 'Walkower'
+            {match.resultType === 'WALKOVER' ? 'Walkover'
               : match.resultType === 'DISQUALIFICATION' ? 'Dyskwalifikacja'
-                : match.resultType === 'RETIREMENT' ? 'Krecz'
-                  : match.resultType}
+              : match.resultType === 'RETIREMENT' ? 'Krecz'
+              : match.resultType}
           </div>
         )}
 
@@ -758,27 +740,36 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           <div className="org-tools">
             <button
               className="btn-secondary"
-              onClick={() => { setTargetMatch(match); setOpenSchedule(true); }}
+              onClick={() => { if (readOnly) { toast.error('Turniej jest zablokowany.'); return; } setTargetMatch(match); setOpenSchedule(true); }}
+              disabled={readOnly}
+              title={readOnly ? 'Turniej zablokowany' : undefined}
             >
               Ustaw termin
             </button>
           </div>
         )}
 
-        {/* Przycisk do panelu wyniku – tylko dla sędziego tego meczu */}
+        {/* Przycisk do panelu wyniku – tylko dla sędziego tego meczu, i tylko gdy nie zablokowany */}
         {showScoreBtn && (
           <button
             onClick={() => navigate(`/match-score-panel/${match.id}`)}
             className="score-input-btn"
+            disabled={readOnly}
+            title={readOnly ? 'Turniej zablokowany' : undefined}
           >
             Wprowadź wynik
           </button>
         )}
 
-        {/* KO tools – widoczne tylko dla organizatora */}
+        {/* KO tools – dla organizatora */}
         {isTournyOrg && isKO(match.round) && match.status !== 'finished' && (
           <div className="ko-tools">
-            <button className="btn-secondary" onClick={() => openPairingModal(match)}>
+            <button
+              className="btn-secondary"
+              onClick={() => openPairingModal(match)}
+              disabled={readOnly}
+              title={readOnly ? 'Turniej zablokowany' : 'Ustaw parę zawodników w tym meczu KO'}
+            >
               Ustaw parę
             </button>
           </div>
@@ -814,6 +805,14 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           <h2 className="section-title">Mecze turnieju</h2>
         </div>
 
+        {/* informacja o blokadzie */}
+        {readOnly && (
+          <div className="notice-blocked" role="status" aria-live="polite"
+               style={{margin:'8px 0 0', padding:'8px 12px', background:'#fff3cd', border:'1px solid #ffe69c', borderRadius:8, color:'#664d03'}}>
+            Ten turniej jest zablokowany — akcje organizatora i sędziego są niedostępne.
+          </div>
+        )}
+
         {/* KO toolbar – tylko dla organizatora */}
         {isTournyOrg && (
           <div className="ko-toolbar">
@@ -823,25 +822,33 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                   <button
                     className="btn-primary"
                     onClick={handleGenerateGroups}
-                    disabled={hasGroupMatches || resetBusy}
+                    disabled={readOnly || hasGroupMatches || resetBusy}
                     title={
-                      hasGroupMatches
-                        ? 'Najpierw usuń mecze grupowe'
-                        : 'Generuj grupy + szkielet KO'
+                      readOnly
+                        ? 'Turniej zablokowany'
+                        : hasGroupMatches
+                          ? 'Najpierw usuń mecze grupowe'
+                          : 'Generuj grupy + szkielet KO'
                     }
                   >
                     Generuj grupy + KO (szkielet)
                   </button>
 
-                  <button className="btn-primary" onClick={handleSeedKO}>
+                  <button
+                    className="btn-primary"
+                    onClick={handleSeedKO}
+                    disabled={readOnly}
+                    title={readOnly ? 'Turniej zablokowany' : 'Zasiej KO (wg ustawień)'}
+                  >
                     Zasiej KO (wg ustawień)
                   </button>
 
-                  <label className="chk" style={{ marginLeft: 12 }}>
+                  <label className="chk" style={{ marginLeft: 12, opacity: readOnly ? 0.6 : 1 }}>
                     <input
                       type="checkbox"
                       checked={alsoKO}
                       onChange={(e) => setAlsoKO(e.target.checked)}
+                      disabled={readOnly}
                     />
                     Usuń też mecze KO
                   </label>
@@ -849,11 +856,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                   <button
                     className="btn-danger"
                     onClick={handleResetGroups}
-                    disabled={!matches.length || resetBusy}
+                    disabled={readOnly || !matches.length || resetBusy}
                     title={
-                      !matches.length
-                        ? 'Brak meczów do usunięcia'
-                        : 'Usuń wszystkie mecze grupowe (i opcjonalnie KO)'
+                      readOnly
+                        ? 'Turniej zablokowany'
+                        : !matches.length
+                          ? 'Brak meczów do usunięcia'
+                          : 'Usuń wszystkie mecze grupowe (i opcjonalnie KO)'
                     }
                   >
                     {resetBusy ? 'Usuwam…' : 'Usuń mecze grupowe'}
@@ -862,13 +871,23 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
               </>
             ) : (
               <div className="ko-row">
-                <button className="btn-primary" onClick={handleGenerateKOOnly}>
+                <button
+                  className="btn-primary"
+                  onClick={handleGenerateKOOnly}
+                  disabled={readOnly}
+                  title={readOnly ? 'Turniej zablokowany' : 'Generuj KO (losowo)'}
+                >
                   Generuj KO (losowo)
                 </button>
               </div>
             )}
 
-            <button className="btn-secondary" onClick={handleGenerateKOSkeleton}>
+            <button
+              className="btn-secondary"
+              onClick={handleGenerateKOSkeleton}
+              disabled={readOnly}
+              title={readOnly ? 'Turniej zablokowany' : 'Utwórz pustą drabinkę KO'}
+            >
               Pusta drabinka KO
             </button>
 
@@ -879,16 +898,21 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                   value={resetFrom}
                   onChange={(e) => setResetFrom(e.target.value)}
                   className="select"
+                  disabled={readOnly}
+                  title={readOnly ? 'Turniej zablokowany' : undefined}
                 >
                   {availableResetRounds.map((r) => (
                     <option key={r} value={r}>
-                      {r === '1/64' || r === '1/32' || r === '1/16' || r === '1/8'
-                        ? `${r} finału`
-                        : r}
+                      {r === '1/64' || r === '1/32' || r === '1/16' || r === '1/8' ? `${r} finału` : r}
                     </option>
                   ))}
                 </select>
-                <button className="btn-danger" onClick={handleResetKO}>
+                <button
+                  className="btn-danger"
+                  onClick={handleResetKO}
+                  disabled={readOnly}
+                  title={readOnly ? 'Turniej zablokowany' : 'Wyczyść mecze KO od wybranej rundy'}
+                >
                   Resetuj od tej rundy
                 </button>
               </div>
@@ -900,7 +924,8 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
         {isTournyOrg && (
           <div className="bulk-toolbar">
             <div className="bulk-row">
-              <button className="btn-secondary" onClick={selectAllVisible}>
+              <button className="btn-secondary" onClick={selectAllVisible} disabled={readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : 'Zaznacz wszystkie widoczne'}>
                 Zaznacz widoczne
               </button>
               <button className="btn-secondary" onClick={clearSelection} disabled={!anySelected}>
@@ -910,10 +935,12 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
               <button
                 className="btn-primary"
                 onClick={openRefModal}
-                disabled={!anySelected}
+                disabled={readOnly || !anySelected}
                 style={{ marginLeft: 12 }}
                 title={
-                  anySelected ? 'Przypisz sędziego do zaznaczonych meczów' : 'Zaznacz mecze'
+                  readOnly
+                    ? 'Turniej zablokowany'
+                    : (anySelected ? 'Przypisz sędziego do zaznaczonych meczów' : 'Zaznacz mecze')
                 }
               >
                 Przydziel sędziego… ({selected.size})
@@ -923,11 +950,15 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
         )}
 
         {isTournyOrg && (
-          <button className="btn-primary" onClick={() => setOpenAuto(true)}>
+          <button
+            className="btn-primary"
+            onClick={() => { if (readOnly) { toast.error('Turniej jest zablokowany.'); return; } setOpenAuto(true); }}
+            disabled={readOnly}
+            title={readOnly ? 'Turniej zablokowany' : 'Automatyczne zaplanowanie meczów'}
+          >
             Auto-plan
           </button>
         )}
-
       </header>
 
       <div className="tabs-container">
@@ -948,30 +979,43 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
         <p className="error">Błąd: {error}</p>
       ) : matches.length > 0 ? (
         <div className="matches-list">
-          {sortedRounds.map((roundName) => (
-            <div key={roundName} className="match-group-section">
-              <h3>
-                {roundName}{' '}
-                {isTournyOrg && (
-                  <button
-                    className="btn-link"
-                    onClick={() => {
-                      const ids = (visibleGroups[roundName] || []).map((m) => m.id);
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        ids.forEach((id) => next.add(id));
-                        return next;
-                      });
-                    }}
-                  >
-                    (zaznacz tę sekcję)
-                  </button>
-                )}
-              </h3>
+          {Object.keys(visibleGroups).length === 0 ? (
+            <p>Brak meczów do wyświetlenia.</p>
+          ) : (
+            Object.keys(visibleGroups).sort((a, b) => {
+              const typeA = ROUND_ORDER.find((type) => a.startsWith(type));
+              const typeB = ROUND_ORDER.find((type) => b.startsWith(type));
+              const indexA = typeA ? ROUND_ORDER.indexOf(typeA) : 999;
+              const indexB = typeB ? ROUND_ORDER.indexOf(typeB) : 999;
+              return indexA === indexB ? a.localeCompare(b) : indexA - indexB;
+            }).map((roundName) => (
+              <div key={roundName} className="match-group-section">
+                <h3>
+                  {roundName}{' '}
+                  {isTournyOrg && (
+                    <button
+                      className="btn-link"
+                      onClick={() => {
+                        if (readOnly) { toast.error('Turniej jest zablokowany.'); return; }
+                        const ids = (visibleGroups[roundName] || []).map((m) => m.id);
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          ids.forEach((id) => next.add(id));
+                          return next;
+                        });
+                      }}
+                      disabled={readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : 'Zaznacz mecze z tej sekcji'}
+                    >
+                      (zaznacz tę sekcję)
+                    </button>
+                  )}
+                </h3>
 
-              {visibleGroups[roundName].map(renderMatch)}
-            </div>
-          ))}
+                {visibleGroups[roundName].map(renderMatch)}
+              </div>
+            ))
+          )}
         </div>
       ) : (
         <p>Brak meczów w tej kategorii.</p>
@@ -985,13 +1029,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
               <h3>
                 Przydziel sędziego ({selected.size} mecz{selected.size === 1 ? '' : 'y'})
               </h3>
-              <button
-                className="pair-modal__close"
-                aria-label="Zamknij"
-                onClick={closeRefModal}
-              >
-                ×
-              </button>
+              <button className="pair-modal__close" aria-label="Zamknij" onClick={closeRefModal}>×</button>
             </div>
 
             <div className="pair-modal__body">
@@ -1005,24 +1043,11 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                 />
               </div>
 
-              <div
-                className="pairing-row"
-                style={{
-                  maxHeight: 280,
-                  overflow: 'auto',
-                  border: '1px solid #eee',
-                  borderRadius: 8,
-                }}
-              >
+              <div className="pairing-row" style={{ maxHeight: 280, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
                 {refLoading ? (
-                  <div className="muted" style={{ padding: 12 }}>
-                    Ładuję listę sędziów…
-                  </div>
+                  <div className="muted" style={{ padding: 12 }}>Ładuję listę sędziów…</div>
                 ) : filteredRefs.length ? (
-                  <ul
-                    className="pairing-list"
-                    style={{ position: 'relative', display: 'block' }}
-                  >
+                  <ul className="pairing-list" style={{ position: 'relative', display: 'block' }}>
                     <li
                       key="none"
                       onMouseDown={() => setChosenRef(null)}
@@ -1047,19 +1072,15 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                 ) : (
                   <div className="muted" style={{ padding: 12 }}>
                     Brak użytkowników z rolą „sędzia” w tym turnieju.
-                    <br />
-                    Dodaj ich w szczegółach turnieju (przycisk „Przydziel sędziego” → teraz
-                    nadaje tylko rolę).
                   </div>
                 )}
               </div>
             </div>
 
             <div className="pair-modal__footer">
-              <button className="btn-secondary" onClick={closeRefModal}>
-                Anuluj
-              </button>
-              <button className="btn-primary" onClick={saveRefAssign} disabled={refLoading}>
+              <button className="btn-secondary" onClick={closeRefModal}>Anuluj</button>
+              <button className="btn-primary" onClick={saveRefAssign} disabled={refLoading || readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : undefined}>
                 {chosenRef ? 'Przypisz do zaznaczonych' : 'Usuń sędziego w zaznaczonych'}
               </button>
             </div>
@@ -1073,13 +1094,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           <div className="pair-modal__card">
             <div className="pair-modal__header">
               <h3>Ustaw parę {pairingMatch ? `– ${pairingMatch.round}` : ''}</h3>
-              <button
-                className="pair-modal__close"
-                aria-label="Zamknij"
-                onClick={closePairingModal}
-              >
-                ×
-              </button>
+              <button className="pair-modal__close" aria-label="Zamknij" onClick={closePairingModal}>×</button>
             </div>
 
             <div className="pair-modal__body">
@@ -1091,33 +1106,23 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                     placeholder="Szukaj zawodnika…"
                     value={p1Query}
                     onFocus={() => setP1Open(true)}
-                    onChange={(e) => {
-                      setP1Query(e.target.value);
-                      setP1User(null);
-                      setP1Open(true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setP1Open(false);
-                    }}
+                    onChange={(e) => { setP1Query(e.target.value); setP1User(null); setP1Open(true); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setP1Open(false); }}
+                    disabled={readOnly}
                   />
                   {p1User && isUsedInSameRoundElsewhere(p1User.id) && (
                     <p className="pairing-hint">Ten zawodnik jest już w innym meczu tej rundy.</p>
                   )}
 
-                  {p1Open && (
+                  {p1Open && !readOnly && (
                     <ul className="pairing-list">
                       {filterEligible(p1Query, p2User?.id).length ? (
                         filterEligible(p1Query, p2User?.id).map((u) => (
                           <li
                             key={u.id}
-                            onMouseDown={() => {
-                              setP1User(u);
-                              setP1Query(`${u.name} ${u.surname}`);
-                              setP1Open(false);
-                            }}
+                            onMouseDown={() => { setP1User(u); setP1Query(`${u.name} ${u.surname}`); setP1Open(false); }}
                           >
-                            {u.name} {u.surname}
-                            {u.email ? ` (${u.email})` : ''}
+                            {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
                           </li>
                         ))
                       ) : (
@@ -1136,32 +1141,22 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                     placeholder="Szukaj zawodnika…"
                     value={p2Query}
                     onFocus={() => setP2Open(true)}
-                    onChange={(e) => {
-                      setP2Query(e.target.value);
-                      setP2User(null);
-                      setP2Open(true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setP2Open(false);
-                    }}
+                    onChange={(e) => { setP2Query(e.target.value); setP2User(null); setP2Open(true); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setP2Open(false); }}
+                    disabled={readOnly}
                   />
                   {p2User && isUsedInSameRoundElsewhere(p2User.id) && (
                     <p className="pairing-hint">Ten zawodnik jest już w innym meczu tej rundy.</p>
                   )}
-                  {p2Open && (
+                  {p2Open && !readOnly && (
                     <ul className="pairing-list">
                       {filterEligible(p2Query, p1User?.id).length ? (
                         filterEligible(p2Query, p1User?.id).map((u) => (
                           <li
                             key={u.id}
-                            onMouseDown={() => {
-                              setP2User(u);
-                              setP2Query(`${u.name} ${u.surname}`);
-                              setP2Open(false);
-                            }}
+                            onMouseDown={() => { setP2User(u); setP2Query(`${u.name} ${u.surname}`); setP2Open(false); }}
                           >
-                            {u.name} {u.surname}
-                            {u.email ? ` (${u.email})` : ''}
+                            {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
                           </li>
                         ))
                       ) : (
@@ -1174,44 +1169,34 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
             </div>
 
             <div className="pair-modal__footer">
-              <button className="btn-secondary" onClick={swapSides}>
+              <button className="btn-secondary" onClick={swapSides} disabled={readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Zamień strony
               </button>
               <div className="pair-modal__spacer" />
-              <button className="btn-secondary" onClick={closePairingModal}>
-                Anuluj
-              </button>
-              <button className="btn-primary" onClick={savePairing}>
+              <button className="btn-secondary" onClick={closePairingModal}>Anuluj</button>
+              <button className="btn-primary" onClick={savePairing} disabled={readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Zapisz
               </button>
             </div>
           </div>
         </div>
       )}
+
       <ScheduleMatchModal
         open={openSchedule}
         match={targetMatch}
         onClose={(saved) => {
           setOpenSchedule(false);
           setTargetMatch(null);
-          if (saved) {
-            // opcjonalnie dociągnij świeże dane; masz już nasłuch socketów,
-            // więc tu nic nie musisz robić – zostaw pusto.
-            // fetchAll();
-          }
         }}
       />
 
       <AutoScheduleModal
         open={openAuto}
         tournamentId={id}
-        onClose={(ran) => {
-          setOpenAuto(false);
-          if (ran) {
-            // Socket 'matches-invalidate' już wymusza odświeżenie w Twoim kodzie;
-            // nic nie trzeba robić.
-          }
-        }}
+        onClose={() => setOpenAuto(false)}
       />
     </section>
   );

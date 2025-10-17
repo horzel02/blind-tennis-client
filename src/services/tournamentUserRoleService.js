@@ -7,10 +7,9 @@ export async function getMyRoles(tournamentId) {
     credentials: 'include',
   });
   if (!res.ok) throw new Error(await readErr(res));
-  return res.json(); // [{id, role, userId}, ...]
+  return res.json();
 }
 
-// Pobierz wszystkie role w turnieju (z userem)
 export async function listRoles(tournamentId) {
   const res = await fetch(`${TOURN_BASE}/${tournamentId}/roles`, {
     credentials: 'include',
@@ -19,7 +18,7 @@ export async function listRoles(tournamentId) {
   return res.json();
 }
 
-// Dodaj rolę (np. 'referee', 'organizer', 'participant')
+// Dodaj rolę
 export async function addRole(tournamentId, userId, role) {
   const res = await fetch(`${TOURN_BASE}/${tournamentId}/roles`, {
     method: 'POST',
@@ -31,7 +30,7 @@ export async function addRole(tournamentId, userId, role) {
   return res.json();
 }
 
-// Usuń rolę po (tournamentId, userId, role)
+// Usuń rolę po 
 export async function removeRole(tournamentId, userId, role) {
   const res = await fetch(
     `${TOURN_BASE}/${tournamentId}/roles/${encodeURIComponent(role)}/${userId}`,

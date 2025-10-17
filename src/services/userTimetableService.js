@@ -8,9 +8,6 @@ async function jfetch(url, opts = {}) {
   return data;
 }
 
-/**
- * getMyMatches({ role: 'player'|'referee', state: 'upcoming'|'live'|'finished', page=1, limit=20 })
- */
 export async function getMyMatches({ role = 'player', state = 'upcoming', page = 1, limit = 20 } = {}) {
   const u = new URL(`${API}/my/matches`);
   u.searchParams.set('role', role);

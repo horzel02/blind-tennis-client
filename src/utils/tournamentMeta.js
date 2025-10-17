@@ -1,6 +1,6 @@
 // client/src/utils/tournamentMeta.js
 
-// --- normalizacja płci -> 'M' | 'W' | 'Coed'
+// --- normalizacja płci 
 export const normGender = (g) => {
   if (!g) return null;
   const s = String(g).trim().toLowerCase();
@@ -27,7 +27,6 @@ export const getGenderChips = (t) => {
         .map((c) => (typeof c === 'string' ? null : normGender(c?.gender)))
         .filter(Boolean)
     );
-    // jeśli ma i M i W → traktuj jako Coed (chip jeden)
     if (set.has('M') && set.has('W')) return ['Coed'];
     return Array.from(set);
   }
@@ -51,8 +50,9 @@ export const getCategoryChips = (t) => {
 
 // --- czy turniej spełnia filtry?
 export const passesFilters = (t, filters) => {
-  const cats = getCategoryChips(t); // np. ['B1','B2']
-  const gens = getGenderChips(t);   // ['M'] | ['W'] | ['Coed'] | []
+  const cats = getCategoryChips(t);
+  const gens = getGenderChips(t);
+  const [formChip] = getFormulaChip(t);
 
   // kategorie (OR)
   if (filters.category?.length) {
@@ -61,6 +61,10 @@ export const passesFilters = (t, filters) => {
   // płeć (OR)
   if (filters.gender?.length) {
     if (!gens.some((g) => filters.gender.includes(g))) return false;
+  }
+  // formuła (OR)
+  if (filters.formula?.length) {
+    if (!formChip || !filters.formula.includes(formChip)) return false;
   }
   // miasto (contains)
   if (filters.city?.trim()) {
@@ -90,16 +94,32 @@ export const passesFilters = (t, filters) => {
   return true;
 };
 
-// --- opcje do checkboxów (z listy)
+// --- formuła turnieju
+export const normFormula = (f) => {
+  if (!f) return null;
+  const s = String(f).trim().toLowerCase();
+  return ['open', 'towarzyski', 'mistrzowski'].includes(s) ? s : null;
+};
+export const getFormulaChip = (t) => {
+  const f = normFormula(t?.formula ?? t?.type);
+  return f ? [f] : [];
+};
+
+// --- opcje do checkboxów 
 export const extractFilterOptions = (list) => {
   const catSet = new Set();
   const genSet = new Set();
+  const formulaSet = new Set();
   for (const t of list || []) {
     getCategoryChips(t).forEach((c) => catSet.add(c));
-    getGenderChips(t).forEach((g) => genSet.add(g)); // już 'M' | 'W' | 'Coed'
+    getGenderChips(t).forEach((g) => genSet.add(g));
+    const [f] = getFormulaChip(t);
+    if (f) formulaSet.add(f);
   }
   return {
     categories: Array.from(catSet),
     genders: Array.from(genSet),
+    formula: Array.from(formulaSet),
   };
 };
+

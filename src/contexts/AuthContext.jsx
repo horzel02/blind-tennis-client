@@ -30,7 +30,6 @@ export function AuthProvider({ children }) {
   // 2) Socket – startujemy tylko, gdy user istnieje
   useEffect(() => {
     if (!user?.id) {
-      // brak usera -> posprzątaj socket
       if (socketRef.current) {
         try { socketRef.current.disconnect(); } catch {}
         socketRef.current = null;
@@ -41,12 +40,10 @@ export function AuthProvider({ children }) {
     const s = io(API_URL, { withCredentials: true });
     socketRef.current = s;
 
-    // serwer już sam dołącza do `user-<id>` (patrz index.js), więc tylko nasłuch:
     const onForceLogout = (payload) => {
       try { s.disconnect(); } catch {}
       toast.error('Twoje konto zostało wylogowane przez administratora.');
       setUser(null);
-      // twardy redirect, żeby ubić stan appki
       window.location.replace('/login');
     };
 
@@ -61,7 +58,7 @@ export function AuthProvider({ children }) {
 
   const login = async (creds) => {
     const u = await authService.login(creds);
-    setUser(u);           // to wywoła efekt i podniesie socket
+    setUser(u);
     return u;
   };
 

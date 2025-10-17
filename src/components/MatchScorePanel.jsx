@@ -29,7 +29,7 @@ function makeRules(match) {
         gamesPerSet: Number.isInteger(match?.tournament?.gamesPerSet) && match.tournament.gamesPerSet > 0
             ? match.tournament.gamesPerSet : 6,
         tieBreakType: (match?.tournament?.tieBreakType || 'normal'),
-        superTbPoints: 10, // MVP: stałe 10
+        superTbPoints: 10,
     };
 }
 
@@ -38,33 +38,31 @@ function isSuperTB(tieBreakType) {
     return t === 'supertiebreak' || t === 'supertie' || t === 'super';
 }
 
-/** limit punktów w danym secie (czy to decider z super TB?) */
+/** limit punktów w danym secie */
 function limitForSetAt(index, setsArr, rules) {
     const maxSets = rules.setsToWin * 2 - 1;
     const tb = String(rules.tieBreakType || '').toLowerCase().replace(/[\s\-_]/g, '');
     const isNoTB = ['notiebreak', 'brak', 'no', 'bez'].includes(tb);
     const isSuperTB = ['supertiebreak', 'supertie', 'super'].includes(tb);
 
-    // policz wygrane przed tym setem (żeby wiedzieć, czy to decider)
+    // policz wygrane przed tym setem
     let a = 0, b = 0;
     for (let i = 0; i < index && i < setsArr.length; i++) {
         const s = setsArr[i];
         const w = Math.max(s.p1, s.p2);
         const l = Math.min(s.p1, s.p2);
         const diff = w - l;
-        if (w >= rules.gamesPerSet && diff >= 2) { // wystarczy do liczenia
+        if (w >= rules.gamesPerSet && diff >= 2) {
             if (s.p1 > s.p2) a++; else b++;
         }
     }
     const isDecider = (index === (maxSets - 1)) && (a === b);
 
-    if (isSuperTB && isDecider) return rules.superTbPoints; // 10
-    if (isNoTB) return undefined;                            // brak limitu w polu
-    return rules.gamesPerSet + 1;                            // zwykły TB → pozwól wpisać 7
+    if (isSuperTB && isDecider) return rules.superTbPoints;
+    if (isNoTB) return undefined;
+    return rules.gamesPerSet + 1;
 }
 
-
-/** zlicz wygrane sety biorąc pod uwagę super TB w deciderze */
 function countWonSetsWithLimits(setsArr, rules) {
     let a = 0, b = 0;
     for (let i = 0; i < setsArr.length && i < (rules.setsToWin * 2 - 1); i++) {
@@ -109,9 +107,9 @@ function isSetCompleteAt(index, setsArr, rules) {
     }
     // zwykły TB
     const N = rules.gamesPerSet;
-    if (w === N && diff >= 2) return true;                 // np. 6:4
-    if (w === N + 1 && l === N) return true;               // 7:6
-    if (w === N + 1 && l === N - 1 && diff === 2) return true; // 7:5
+    if (w === N && diff >= 2) return true;
+    if (w === N + 1 && l === N) return true;
+    if (w === N + 1 && l === N - 1 && diff === 2) return true;
     return false;
 }
 
@@ -132,8 +130,8 @@ export default function MatchScorePanel() {
     const initialLiveSent = useRef(false);
 
     // === administracyjne zakończenia ===
-    const [resultType, setResultType] = useState('NORMAL'); // NORMAL | WO | DQ | RET
-    const [adminWinner, setAdminWinner] = useState('p1');   // kto ma wygrać w WO/DQ/RET
+    const [resultType, setResultType] = useState('NORMAL');
+    const [adminWinner, setAdminWinner] = useState('p1');
 
     // === Reguły (z turnieju) ===
     const rules = useMemo(() => makeRules(match), [match]);
@@ -221,13 +219,13 @@ export default function MatchScorePanel() {
             socket.off('real-time-score-update');
             socket.disconnect();
             setSocketReady(false);
-            initialLiveSent.current = false; // reset przy wyjściu z meczu
+            initialLiveSent.current = false;
         };
     }, [matchId]);
 
     useEffect(() => {
-        if (!socketReady) return;                 // czekamy aż socket połączony
-        if (initialLiveSent.current) return;      // wysyłamy tylko raz
+        if (!socketReady) return;
+        if (initialLiveSent.current) return;
         if (!Array.isArray(sets) || sets.length === 0) return;
 
         socketRef.current.emit('real-time-score-update', {
@@ -266,10 +264,8 @@ export default function MatchScorePanel() {
 
         row[key] = val;
 
-        // NIE blokuj 6–6 przy zwykłym TB ani wysokich wartości przy braku TB.
-        // Zostaw tylko blokadę 10–10 w super TB (bo to „do 10” bez przewagi).
         if (row.p1 === limit && row.p2 === limit) {
-            // limit==10 tylko w STB-deciderze
+            // limit==10 tylko w STB
             if (limit === rules.superTbPoints) {
                 if (which === 1) row.p1 = Math.max(0, limit - 1);
                 else row.p2 = Math.max(0, limit - 1);
@@ -278,7 +274,6 @@ export default function MatchScorePanel() {
 
         next[index] = row;
 
-        // auto-dodawanie nowego seta tylko, gdy domknięto ostatni i mecz jeszcze nie rozstrzygnięty
         const [na, nb] = countWonSetsWithLimits(next, rules);
         const resolved = na >= rules.setsToWin || nb >= rules.setsToWin;
         if (isSetCompleteAt(index, next, rules) && !resolved && index === next.length - 1 && next.length < maxSets) {
@@ -344,8 +339,7 @@ export default function MatchScorePanel() {
                 await updateMatchScore(matchId, {
                     status: 'finished',
                     winnerId,
-                    outcome: mapOutcome(resultType), // <-- NOWE pole zgodne z backendem
-                    // opcjonalnie: note: adminNote,
+                    outcome: mapOutcome(resultType),
                     matchSets: [],
                 });
             } else {

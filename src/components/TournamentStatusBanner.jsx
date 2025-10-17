@@ -5,8 +5,8 @@ export function getTournamentLocks(tournament) {
   if (!tournament) return { isHidden: false, isDeleted: false, readOnly: false, signOff: false };
   const isHidden  = tournament.status === 'hidden';
   const isDeleted = tournament.status === 'deleted';
-  const readOnly  = isHidden || isDeleted;                  // pełny read-only (żadnych akcji)
-  const signOff   = tournament.applicationsOpen === false;  // zapisy wstrzymane
+  const readOnly  = isHidden || isDeleted;
+  const signOff   = tournament.applicationsOpen === false;
   return { isHidden, isDeleted, readOnly, signOff };
 }
 

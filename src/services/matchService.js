@@ -5,8 +5,8 @@ const API_BASE_URL = (import.meta?.env?.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : 'http://localhost:5000/api');
 
-const MATCHES_API = `${API_BASE_URL}/matches`;      // operacje na pojedynczym meczu
-const TOURNAMENTS_API = `${API_BASE_URL}/tournaments`;  // listy/operacje per turniej
+const MATCHES_API = `${API_BASE_URL}/matches`;
+const TOURNAMENTS_API = `${API_BASE_URL}/tournaments`;
 
 // Mały helper do fetcha z JSON + sensownym błędem
 async function jfetch(resource, opts = {}) {
@@ -46,7 +46,6 @@ export async function generateGroupsAndKO(tournamentId) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
-// alias pod starą nazwę
 export const generateTournamentStructure = generateGroupsAndKO;
 
 /** Generuj: tylko KO (pełna drabinka + pary R1, BYE wg ustawień turnieju) */
@@ -66,7 +65,7 @@ export async function seedKnockout(tournamentId, options = {}) {
   });
 }
 
-/** Reset KO od wskazanej rundy (np. "1/16", "Ćwierćfinał", "Półfinał", "Finał", "1/32", "1/64") */
+/** Reset KO od wskazanej rundy */
 export async function resetKnockoutFromRound(tournamentId, from) {
   return jfetch(`${TOURNAMENTS_API}/${tournamentId}/reset-knockout`, {
     method: 'POST',
@@ -74,10 +73,9 @@ export async function resetKnockoutFromRound(tournamentId, from) {
     body: JSON.stringify({ from }),
   });
 }
-// alias pod stare importy
 export const resetFromStage = resetKnockoutFromRound;
 
-/** Usuń wszystkie mecze fazy grupowej (KO zostaje nietknięte) */
+/** Usuń wszystkie mecze fazy grupowej */
 export async function resetGroupPhase(tournamentId, alsoKO = true) {
   return jfetch(`${TOURNAMENTS_API}/${tournamentId}/reset-groups`, {
     method: 'POST',
@@ -151,6 +149,5 @@ export async function getEligiblePlayersForMatch(matchId) {
   return jfetch(`${MATCHES_API}/${matchId}/eligible`);
 }
 
-// (opcjonalnie, żeby nie zmieniać importów w komponentach)
 export const setMatchRefereeBulk = (tournamentId, matchIds, refereeId) =>
   assignRefereeBulk({ tournamentId, matchIds, refereeId });

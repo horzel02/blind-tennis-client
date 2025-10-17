@@ -11,7 +11,7 @@ export default function GuardianPickerModal({
   tournamentId,
   playerId,
   onChanged,
-  existingIds = new Set(), // np. new Set([playerId, ...alreadyGuardianIds])
+  existingIds = new Set(),
 }) {
   const [busy, setBusy] = useState(false);
 

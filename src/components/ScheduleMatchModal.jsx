@@ -38,14 +38,13 @@ export default function ScheduleMatchModal({ open, onClose, match }) {
     e.preventDefault();
     if (!date || !time) return;
 
-    // łączymy date+time na ISO; backend i tak normalizuje do minut
     const iso = new Date(`${date}T${time}:00`);
     await scheduleApi.setMatchSchedule(match.id, {
       matchTime: iso.toISOString(),
       durationMin: Number(durationMin) || 45,
       courtNumber: courtNumber === '' ? null : String(courtNumber),
     });
-    onClose(true); // sygnał: zapisano
+    onClose(true);
   };
 
   const handleClear = async () => {

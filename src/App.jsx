@@ -53,7 +53,7 @@ export default function App() {
           {/* Trasa do wyświetlania drabinki turnieju */}
           <Route path="/tournaments/:id/bracket" element={<TournamentBracket />} />
 
-          {/* Nowa trasa do panelu sędziowskiego, chroniona przez PrivateRoute */}
+          {/* trasa do panelu sędziowskiego */}
           <Route
             path="/match-score-panel/:matchId"
             element={
@@ -62,7 +62,7 @@ export default function App() {
               </PrivateRoute>
             }
           />
-          {/* Starą trasę możesz usunąć lub zostawić zakomentowaną
+          {/* 
           <Route
             path="/score-input/:matchId"
             element={

@@ -47,8 +47,8 @@ export default function TournamentDetailsPage() {
   const [isRefereeModalOpen, setRefereeModalOpen] = useState(false);
 
   const [isGuardianModalOpen, setGuardianModalOpen] = useState(false);
-  const [guardianPlayerId, setGuardianPlayerId] = useState(null); // dla kogo dodajemy opiekuna
-  const [guardians, setGuardians] = useState([]);                  // lista opiekunów tego zawodnika
+  const [guardianPlayerId, setGuardianPlayerId] = useState(null);
+  const [guardians, setGuardians] = useState([]);
   const [guardiansLoading, setGuardiansLoading] = useState(false);
   const [myGuardianInvite, setMyGuardianInvite] = useState(null);
   const [myRefInvite, setMyRefInvite] = useState(null);
@@ -100,8 +100,8 @@ export default function TournamentDetailsPage() {
 
   useEffect(() => {
     if (!tournament?.id || !user?.id) return;
-    setGuardianPlayerId(user.id);      // „mój” widok opiekunów
-    refreshGuardians(user.id);         // od razu pobierz listę
+    setGuardianPlayerId(user.id);
+    refreshGuardians(user.id);
   }, [tournament?.id, user?.id, refreshGuardians]);
 
 
@@ -140,7 +140,6 @@ export default function TournamentDetailsPage() {
       if (!tournament?.id) return;
       setRoles(await roleService.listRoles(tournament.id));
     } catch {
-      /* ignore */
     }
   }, [tournament?.id]);
 
@@ -175,13 +174,11 @@ export default function TournamentDetailsPage() {
     fetchMyRegistration();
     fetchAcceptedCount();
     roleService
-    // Lista ról jest tylko dla organizatora – dla reszty pomijamy i nie hałasujemy 403.
     if (user?.id === tournament.organizer_id) {
       roleService.listRoles(tournament.id)
         .then(setRoles)
         .catch(() => setRoles([]));
     } else {
-      // nic nie rób – role zostaną uzupełnione tylko, jeśli wcześniej były w stanie
     }
   }, [tournament, fetchMyRegistration, fetchAcceptedCount]);
 
@@ -200,7 +197,6 @@ export default function TournamentDetailsPage() {
       if (myRefInvite) await markRead(myRefInvite.id);
       setMyRefInvite(null);
       toast.success('Dołączyłeś jako sędzia');
-      // Opcjonalnie zdejmij/uzupełnij role lokalnie, by zniknął/przybył przycisk itp.
       setRoles(prev => [...prev, { id: `tmp-${Date.now()}`, role: 'referee', user }]);
     } catch (e) {
       toast.error(e?.message || 'Nie udało się zaakceptować');
@@ -217,6 +213,7 @@ export default function TournamentDetailsPage() {
       toast.error(e?.message || 'Nie udało się odrzucić');
     }
   };
+
 
 
   // ====== Guardy i pomocnicze ======
@@ -245,7 +242,7 @@ export default function TournamentDetailsPage() {
   const isTournyOrg = roles.some((r) => r.role === 'organizer' && r.user.id === user?.id);
   const address = `${street}, ${postalCode} ${city}, ${country}`;
 
-  // ====== Normalizacja płci (frontendowa kopia) ======
+  // ====== Normalizacja płci  ======
   const norm = (g) => {
     if (!g) return null;
     const s = String(g).trim().toLowerCase();
@@ -261,12 +258,12 @@ export default function TournamentDetailsPage() {
   // User gender
   const userGender = norm(user?.gender);
 
-  // Kategorie → profil płci turnieju
+  // Kategorie profil płci turnieju
   const catGendersSet = new Set((tournament?.categories || []).map((c) => norm(c?.gender)).filter(Boolean));
   const hasCoed = catGendersSet.has('coed');
   const sexSet = new Set([...catGendersSet].filter((g) => g === 'male' || g === 'female'));
 
-  // Jedna płeć → limit; dwie albo coed → open
+  // Jedna płeć  limit; dwie albo coed open
   const genderLimited = !hasCoed && sexSet.size === 1;
   const requiredGender = genderLimited ? [...sexSet][0] : null;
 
@@ -278,10 +275,10 @@ export default function TournamentDetailsPage() {
     return new Date() <= end;
   })();
 
-  // Czy w ogóle można się rejestrować teraz (czas/miejsca + blokady)
+  // Czy w ogóle można się rejestrować teraz 
   const canRegisterNow = Boolean(!readOnly && applicationsOpen && deadlineOK && capacityOK);
 
-  // Prewalidacja płci (nie blokuj jeśli nie znamy płci usera – niech backend rozstrzygnie)
+  // Prewalidacja płci
   const canPrevalidate = !!userGender;
   const genderConflict = genderLimited && canPrevalidate && userGender !== requiredGender;
 
@@ -312,11 +309,16 @@ export default function TournamentDetailsPage() {
   const categoryChips = getCategoryChips(tournament);
   const genderChips = computeGenderChips(tournament);
 
+  const formulaLabel = ({
+  open: 'Open',
+  towarzyski: 'Towarzyski',
+  mistrzowski: 'Mistrzowski'
+})[tournament.formula] || 'Open';
+
 
   const openGuardianModalFor = (pid) => {
     setGuardianPlayerId(pid);
     setGuardianModalOpen(true);
-    // odśwież listę dla tego zawodnika
     refreshGuardians(pid);
   };
 
@@ -335,7 +337,6 @@ export default function TournamentDetailsPage() {
 
   // ====== Handlery ======
   const handleRegister = async () => {
-    // twarde stopery BEZ API (kolejność: RO → zapisy → deadline → limit)
     if (readOnly) {
       toast.error('Turniej jest zablokowany.');
       return;
@@ -447,7 +448,6 @@ export default function TournamentDetailsPage() {
     try {
       await roleService.resignAsReferee(tournament.id);
       toast.success('Wypisano z roli sędziego');
-      // ⚠️ Bez ponownego calla do /roles (organizer-only) – zdejmij rolę lokalnie
       setRoles(prev => prev.filter(r => !(r.role === 'referee' && r.user?.id === user?.id)));
       setTimeout(() => window.location.reload(), 300);
     } catch (e) {
@@ -459,10 +459,9 @@ export default function TournamentDetailsPage() {
     if (!myGuardianLink?.id) return;
     if (!window.confirm('Na pewno chcesz się wypisać jako opiekun w tym turnieju?')) return;
     try {
-      await guardianApi.remove(myGuardianLink.id); // DELETE /api/guardians/:id
+      await guardianApi.remove(myGuardianLink.id);
       toast.success('Wypisano z roli opiekuna');
       setMyGuardianLink(null);
-      // ewentualnie odśwież listy opiekunów, jeśli są otwarte:
       refreshGuardians();
       setTimeout(() => window.location.reload(), 300);
     } catch (e) {
@@ -563,6 +562,7 @@ export default function TournamentDetailsPage() {
             {genderLimited && (
               <span className="chip chip-info">Tylko dla {genderPolish(requiredGender)}</span>
             )}
+            <span className="chip chip-info">{formulaLabel}</span>
           </div>
 
           <p className="icon-label">
@@ -852,8 +852,8 @@ export default function TournamentDetailsPage() {
         tournamentId={tournament.id}
         playerId={guardianPlayerId}
         existingIds={new Set([
-          guardianPlayerId,                                 // nie pozwól wybrać samego siebie
-          ...guardians.map(g => g.guardianUserId).filter(Boolean) // już przypięci
+          guardianPlayerId,
+          ...guardians.map(g => g.guardianUserId).filter(Boolean)
         ])}
         onChanged={() => refreshGuardians()}
       />

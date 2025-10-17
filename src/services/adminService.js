@@ -16,7 +16,7 @@ export async function listUsers({ query = '', role = '', active = '', page = 1, 
   u.searchParams.set('limit', String(limit));
   const r = await fetch(u, { credentials: 'include' });
   if (!r.ok) throw new Error(await readErr(r));
-  return r.json(); // { total, page, limit, items }
+  return r.json();
 }
 
 
@@ -43,9 +43,11 @@ export async function setUserRole(id, role) {
 }
 
 // TOURNAMENTS
-export async function listTournaments({ query = '' } = {}) {
+export async function listTournaments({ query = '', page = 1, limit = 25 } = {}) {
   const u = new URL(`${ADMIN}/tournaments`);
   if (query) u.searchParams.set('query', query);
+  u.searchParams.set('page', String(page));
+  u.searchParams.set('limit', String(limit));
   const r = await fetch(u, { credentials: 'include' });
   if (!r.ok) throw new Error(await readErr(r));
   return r.json();
@@ -57,16 +59,18 @@ export async function deleteTournament(id) {
   return r.json();
 }
 
-// DODAJ:
-export async function setTournamentHidden(id, hidden = true, applicationsOpen) {
+export async function setTournamentHidden(id, hidden, applicationsOpen) {
+  const body = {};
+  if (typeof hidden === 'boolean') body.hidden = hidden;
+  if (typeof applicationsOpen === 'boolean') body.applicationsOpen = applicationsOpen;
   const r = await fetch(`${ADMIN}/tournaments/${id}/hide`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ hidden, applicationsOpen })
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(await readErr(r));
-  return r.json(); // { id, status, applicationsOpen }
+  return r.json();
 }
 
 export async function softDeleteTournament(id) {
@@ -75,5 +79,5 @@ export async function softDeleteTournament(id) {
     credentials: 'include'
   });
   if (!r.ok) throw new Error(await readErr(r));
-  return r.json(); // { id, status }
+  return r.json();
 }

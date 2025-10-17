@@ -29,7 +29,6 @@ export default function TournamentFormPage() {
         const firstCategory = t.categories && t.categories.length > 0 ? t.categories[0] : {};
 
         setInitialData({
-          // podstawowe
           name: t.name,
           description: t.description || '',
           street: t.street,
@@ -42,16 +41,12 @@ export default function TournamentFormPage() {
             ? t.registration_deadline.split('T')[0]
             : '',
           applicationsOpen: t.applicationsOpen,
-
-          // kategoria (pojedyncza)
+          formula: t.formula ?? t.type ?? 'open',
           category: firstCategory.categoryName || '',
           gender: firstCategory.gender || '',
 
-          // limit (zostajemy przy participant_limit)
           participant_limit: t.participant_limit?.toString() || '',
 
-          // USTAWIENIA TURNIEJU (NOWE)
-          // format – jeśli nie ma w DB, bierzemy z isGroupPhase
           format: t.format || (t.isGroupPhase ? 'GROUPS_KO' : 'KO_ONLY'),
           groupSize: t.groupSize ?? 4,
           qualifiersPerGroup: t.qualifiersPerGroup ?? 2,
@@ -59,7 +54,6 @@ export default function TournamentFormPage() {
           koSeedingPolicy: t.koSeedingPolicy || 'RANDOM_CROSS',
           avoidSameGroupInR1: t.avoidSameGroupInR1 ?? true,
 
-          // legacy – nadal trzymamy w formie
           isGroupPhase: t.isGroupPhase,
           setsToWin: t.setsToWin,
           gamesPerSet: t.gamesPerSet,
@@ -77,7 +71,6 @@ export default function TournamentFormPage() {
     setLoading(true);
     setError(null);
 
-    // kategoria: pojedynczy wpis (jak u Ciebie)
     const categoriesData = formValues.category && formValues.gender
       ? [{ category: formValues.category, gender: formValues.gender }]
       : [];
@@ -95,25 +88,22 @@ export default function TournamentFormPage() {
       city: formValues.city,
       country: formValues.country,
 
-      // limit – zostajemy przy participant_limit
       participant_limit: formValues.participant_limit
         ? Number(formValues.participant_limit)
         : null,
 
       applicationsOpen: formValues.applicationsOpen,
+      formula: formValues.formula,
 
-      // NOWE USTAWIENIA
-      format: formValues.format, // 'GROUPS_KO' | 'KO_ONLY'
+      format: formValues.format,
       groupSize: formValues.format === 'GROUPS_KO' ? Number(formValues.groupSize) : null,
       qualifiersPerGroup: formValues.format === 'GROUPS_KO' ? Number(formValues.qualifiersPerGroup) : null,
       allowByes: !!formValues.allowByes,
       koSeedingPolicy: formValues.koSeedingPolicy,
       avoidSameGroupInR1: !!formValues.avoidSameGroupInR1,
 
-      // legacy spójność
       isGroupPhase: formValues.format === 'GROUPS_KO',
 
-      // reguły gry
       setsToWin: formValues.setsToWin,
       gamesPerSet: formValues.gamesPerSet,
       tieBreakType: formValues.tieBreakType,

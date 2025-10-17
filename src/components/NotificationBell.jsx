@@ -30,7 +30,6 @@ export default function NotificationBell() {
     setLoading(true);
     try {
       const rows = await listNotifications();
-      // pokazujemy nieprzeczytane
       setItems((rows || []).filter(r => !r.readAt));
     } catch (e) {
       console.error('notif refresh failed', e);
@@ -48,7 +47,7 @@ export default function NotificationBell() {
 
     const onNew = (n) => upsert(n);
     const onRead = ({ id }) => removeFromList(id);
-    const onReadAll = () => setItems([]); // uproszczenie: czyszczimy lokalnie
+    const onReadAll = () => setItems([]);
 
     s.on('notif:new', onNew);
     s.on('notif:read', onRead);
@@ -74,12 +73,9 @@ export default function NotificationBell() {
   const unread = items.length;
 
   const openLink = async (n) => {
-    // UWAGA: nie oznaczamy jako read,
-    // tylko przechodzimy; użytkownik sam klika „Oznacz jako przeczytane”
     if (n.link) navigate(n.link);
   };
 
-  // ——— Akcje domenowe (tak jak miałeś), ale po sukcesie oznaczamy read:
   const acceptPlayerInvite = async (n) => {
     try {
       const tid = n?.meta?.tournamentId;
@@ -256,7 +252,6 @@ export default function NotificationBell() {
                   </InfoRow>
                 );
               }
-              // typy informacyjne – tylko „Oznacz jako przeczytane” + ewentualnie „Szczegóły”
               return <InfoRow key={n.id} n={n} />;
             })
           )}

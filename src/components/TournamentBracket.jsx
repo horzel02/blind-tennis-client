@@ -52,7 +52,7 @@ function isKO(label = '') {
     return /(1\/(8|16|32|64)\s*finału|ćwierćfinał|półfinał|finał)/i.test(label || '');
 }
 
-// mapka dla typów administracyjnych (jak w TournamentMatches)
+// mapka dla typów administracyjnych
 function resultTypeLabel(rt) {
     if (!rt || rt === 'NORMAL') return null;
     if (rt === 'WALKOVER') return 'Walkower';
@@ -62,7 +62,7 @@ function resultTypeLabel(rt) {
 }
 
 export default function TournamentBracket() {
-    const { id } = useParams(); // tournamentId
+    const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
 
@@ -176,7 +176,6 @@ export default function TournamentBracket() {
         };
     }, [id, fetchAll]);
 
-    // podłączanie do pokoi match-* dla tego co widać
     useEffect(() => {
         const s = socketRef.current;
         if (!s) return;

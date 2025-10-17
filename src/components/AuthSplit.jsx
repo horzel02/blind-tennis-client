@@ -27,7 +27,7 @@ export default function AuthSplit({ mode = 'login' }) {
         toast.success('Zalogowano pomyślnie!');
         window.location.replace('/');
       } else {
-        await register(form); // zawiera też gender / preferredCategory
+        await register(form);
         toast.success('Rejestracja zakończona sukcesem!');
         navigate('/login');
       }

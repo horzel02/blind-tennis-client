@@ -36,11 +36,12 @@ export default function TournamentList({
   const [sortOption, setSortOption] = useState('dateDesc');
   const [filters, setFilters] = useState({
     category: [],
-    gender: [],     // używamy wartości kanonicznych: 'M','W','Coed'
+    gender: [],
     city: '',
     dateFrom: '',
     dateTo: '',
-    status: []
+    status: [],
+    formula: [],
   });
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -63,7 +64,7 @@ export default function TournamentList({
   }, [initialTournaments]);
 
   // 5) opcje do filtrów wyciągnięte z danych
-  const { categories, genders } = useMemo(
+  const { categories, genders, formula } = useMemo(
     () => extractFilterOptions(allTournaments),
     [allTournaments]
   );
@@ -117,7 +118,8 @@ export default function TournamentList({
       city: '',
       dateFrom: '',
       dateTo: '',
-      status: []
+      status: [],
+      formula: [],
     });
     setShowMobileFilters(false);
   };
@@ -183,9 +185,10 @@ export default function TournamentList({
           <TournamentFilters
             filters={filters}
             setFilters={setFilters}
-            categories={categories /* np. ['B1','B2','B3','B4'] */}
-            genders={genders       /* ['M','W','Coed'] */}
+            categories={categories}
+            genders={genders}
             isMobileOffCanvas={false}
+            formula={formula}
           />
         </aside>
 
@@ -226,6 +229,7 @@ export default function TournamentList({
                 categories={categories}
                 genders={genders}
                 isMobileOffCanvas={true}
+                formula={formula}
               />
             </div>
             <div className="modal-actions">
