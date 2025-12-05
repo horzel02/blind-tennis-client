@@ -85,7 +85,22 @@
 .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{filter:brightness(.97)}
 .btn-secondary{background:#fff;border-color:var(--line)}.btn-secondary:hover{background:#f3f4f8}
 .btn-warning{background:var(--warn-bg);color:#9a3412;border-color:var(--warn-br)}
-.btn-delete,.btn-danger{background:var(--danger-bg);color:var(--danger-700);border-color:var(--danger-br)}
+/* Czerwony przycisk usuwania */
+.btn-delete,
+.btn-danger {
+  background: var(--danger);      /* pełna czerwień */
+  color: #fff;
+  border-color: var(--danger);
+}
+
+/* Hover: biały z czerwoną ramką i tekstem */
+.btn-delete:hover,
+.btn-danger:hover {
+  background: #fff;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .btn-link{background:transparent;color:var(--primary);border:none;padding:0}
 
 /* ------------ Tabela (kompakt, wyraźne podziały) ------------ */
@@ -152,4 +167,12 @@ th[style*="width:280"], th[style*="width:420"]{white-space:nowrap}
   .actions{gap:6px}
   .tbl{min-width:820px}
   .ap-pagination{justify-content:center}
+}
+
+
+/* kompaktowy select w kolumnie Rola */
+.input-role-compact {
+  min-width: 0 !important;
+  max-width: 90px;
+  padding-inline: 6px;
 }

@@ -1,3 +1,4 @@
+// client/src/services/adminService.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const ADMIN = `${API_BASE_URL}/api/admin`;
 
@@ -77,6 +78,17 @@ export async function softDeleteTournament(id) {
   const r = await fetch(`${ADMIN}/tournaments/${id}/delete`, {
     method: 'PATCH',
     credentials: 'include'
+  });
+  if (!r.ok) throw new Error(await readErr(r));
+  return r.json();
+}
+
+export async function setUserPassword(id, password) {
+  const r = await fetch(`${ADMIN}/users/${id}/password`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ password })
   });
   if (!r.ok) throw new Error(await readErr(r));
   return r.json();

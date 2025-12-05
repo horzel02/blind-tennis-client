@@ -1,3 +1,4 @@
+// src/components/TournamentStatusBanner.jsx
 import React from 'react';
 
 /** Proste wyliczenie blokad do ponownego użycia */

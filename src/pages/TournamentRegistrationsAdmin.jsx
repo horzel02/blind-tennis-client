@@ -122,6 +122,7 @@ export default function TournamentRegistrationsAdmin() {
   },
     [regs, statusFilter, searchTerm, dateFrom, dateTo, sortField, sortDirection]
   );
+
   // obliczanie liczby stron
   const totalPages = useMemo(() => {
     return Math.max(1, Math.ceil(filteredAndSorted.length / perPage));
@@ -322,7 +323,8 @@ export default function TournamentRegistrationsAdmin() {
 
   // ─── RENDER
   return (
-    <div className="container" style={{ padding: '1rem', marginBottom: '2rem' }}>
+    <div style={{ padding: '0 1rem', marginBottom: '2rem' }}>
+
       <Breadcrumbs items={breadcrumbItems} />
       <h1 style={{ marginBottom: '1.5rem' }}>
         Zgłoszenia do turnieju «{tournament?.name ?? `#${id}`}»
@@ -450,7 +452,7 @@ export default function TournamentRegistrationsAdmin() {
         }}
           className="btn-secondary"
         >
-          Eksportuj widoczne
+          Eksportuj
         </button>
       </div>
 
@@ -460,7 +462,7 @@ export default function TournamentRegistrationsAdmin() {
       ) : (
         <>
           {!isMobile && (
-            <div className="table-responsive-wrapper">
+            <div className="table-responsive">
               <table className="registrations-table">
                 <thead>
                   <tr>
@@ -481,6 +483,7 @@ export default function TournamentRegistrationsAdmin() {
                       Email
                       {sortField === 'email' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
                     </th>
+                    <th>Opiekun</th>
                     <th onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
                       Status
                       {sortField === 'status' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
@@ -495,39 +498,169 @@ export default function TournamentRegistrationsAdmin() {
                     </th>
                     <th>Płeć</th>
                     <th>Preferowana kat.</th>
-                    <th style={{ width: '200px', textAlign: 'center' }}>Akcje</th>
+                    <th className="actions-col">Akcje</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {paginatedData.map(reg => (
-                    <tr key={reg.id}>
-                      {/* 1) Checkbox zaznaczający wiersz */}
-                      <td data-label="Zaznacz" style={{ textAlign: 'center' }}>
+                  {paginatedData.map(reg => {
+                    // Szukamy zaakceptowanego opiekuna (backend może już filtrować po turnieju)
+                    const acceptedGuardian = reg.user?.guardiansAsPlayer?.find(g => g?.status === 'accepted')?.guardian;
+                    const guardianLabel = acceptedGuardian
+                      ? `${acceptedGuardian.name} ${acceptedGuardian.surname}`
+                      : '—';
+
+                    return (
+                      <tr key={reg.id}>
+                        {/* 1) Checkbox zaznaczający wiersz */}
+                        <td data-label="Zaznacz" style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(reg.id)}
+                            onChange={() => toggleSelect(reg.id)}
+                          />
+                        </td>
+
+                        {/* 2) Zawodnik: link do profilu */}
+                        <td data-label="Zawodnik">
+                          {reg.user ? (
+                            <Link to={`/u/${reg.user.id}`} className="reg-username-link" title="Zobacz profil">
+                              {reg.user.name} {reg.user.surname}
+                            </Link>
+                          ) : '—'}
+                        </td>
+
+                        {/* 3) Email */}
+                        <td data-label="Email">{reg.user.email}</td>
+
+                        {/* 3a) Opiekun */}
+                        <td data-label="Opiekun">{guardianLabel}</td>
+
+                        {/* 4) Status */}
+                        <td data-label="Status" className={
+                          reg.status === 'pending' ? 'reg-admin-status-pending'
+                            : reg.status === 'invited' ? 'reg-admin-status-invited'
+                              : reg.status === 'accepted' ? 'reg-admin-status-approved'
+                                : 'reg-admin-status-rejected'
+                        }>
+                          {reg.status === 'pending'
+                            ? 'Oczekujące'
+                            : reg.status === 'invited'
+                              ? 'Zaproszony'
+                              : reg.status === 'accepted'
+                                ? 'Zaakceptowane'
+                                : 'Odrzucone'}
+                        </td>
+
+                        {/* 5) Data zgłoszenia */}
+                        <td data-label="Data zgłoszenia" className="reg-date-cell">
+                          {new Date(reg.createdAt).toLocaleString('pl-PL', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                          })}
+                        </td>
+
+                        {/* 6) Data modyfikacji */}
+                        <td data-label="Data modyfikacji" className="reg-date-cell">
+                          {new Date(reg.updatedAt).toLocaleString('pl-PL', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                          })}
+                        </td>
+
+                        {/* 7) Płeć z profilu użytkownika */}
+                        <td data-label="Płeć">{genderChip(reg.user?.gender)}</td>
+
+                        {/* 8) Preferowana kategoria (z profilu) */}
+                        <td data-label="Preferowana kat.">{categoryChip(reg.user?.preferredCategory)}</td>
+
+                        {/* 9) Akcje: pojedyncze (accept/reject/cancel/restore) */}
+                        <td data-label="Akcje" className="actions-cell actions-col">
+                          {reg.status === 'pending' ? (
+                            <>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'accepted')}
+                                className="btn-icon btn-approve"
+                              >
+                                Akceptuj
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'rejected')}
+                                className="btn-icon btn-reject"
+                              >
+                                Odrzuć
+                              </button>
+                            </>
+                          ) : reg.status === 'invited' ? (
+                            <>
+                              <span style={{ marginRight: 8, fontStyle: 'italic' }}>
+                                Czeka na akceptację zawodnika
+                              </span>
+                              <button
+                                onClick={() => handleCancelInvite(reg.id)}
+                                className="btn-icon btn-delete"
+                              >
+                                Anuluj zaproszenie
+                              </button>
+                            </>
+                          ) : reg.status === 'accepted' ? (
+                            <>
+                              <span className="reg-admin-status-approved">✓ Zaakceptowane</span>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'pending')}
+                                className="btn-icon btn-delete"
+                              >
+                                Anuluj
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="reg-admin-status-rejected">✕ Odrzucone</span>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'pending')}
+                                className="btn-icon btn-approve"
+                              >
+                                Przywróć
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Widok kart dla urządzeń mobilnych */}
+          {isMobile && (
+            <div className="registrations-cards-list">
+              {paginatedData.map((reg) => {
+                const acceptedGuardian = reg.user?.guardiansAsPlayer?.find(g => g?.status === 'accepted')?.guardian;
+                const guardianLabel = acceptedGuardian
+                  ? `${acceptedGuardian.name} ${acceptedGuardian.surname}`
+                  : '—';
+
+                return (
+                  <div key={reg.id} className="registration-card">
+                    <div className="card-header" onClick={() => toggleRowExpansion(reg.id)}>
+                      <div className="card-title">
                         <input
                           type="checkbox"
+                          className="card-checkbox"
                           checked={selectedIds.includes(reg.id)}
-                          onChange={() => toggleSelect(reg.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelect(reg.id);
+                          }}
                         />
-                      </td>
-
-                      {/* 2) Zawodnik: link do profilu */}
-                      <td data-label="Zawodnik">
-                        {reg.user ? (
-                          <Link to={`/u/${reg.user.id}`} className="reg-username-link" title="Zobacz profil">
-                            {reg.user.name} {reg.user.surname}
-                          </Link>
-                        ) : '—'}
-                      </td>
-
-                      {/* 3) Email */}
-                      <td data-label="Email">{reg.user.email}</td>
-
-                      {/* 4) Status */}
-                      <td data-label="Status" className={
+                        <h4>{reg.user.name} {reg.user.surname}</h4>
+                      </div>
+                      <span className={
                         reg.status === 'pending' ? 'reg-admin-status-pending'
                           : reg.status === 'invited' ? 'reg-admin-status-invited'
-                            : reg.status === 'accepted' ? 'reg-admin-status-approved'
+                            : reg.status === 'accepted' ? 'reg-admin-status-accepted'
                               : 'reg-admin-status-rejected'
                       }>
                         {reg.status === 'pending'
@@ -537,194 +670,81 @@ export default function TournamentRegistrationsAdmin() {
                             : reg.status === 'accepted'
                               ? 'Zaakceptowane'
                               : 'Odrzucone'}
-                      </td>
-
-                      {/* 5) Data zgłoszenia */}
-                      <td data-label="Data zgłoszenia" className="reg-date-cell">
-                        {new Date(reg.createdAt).toLocaleString('pl-PL', {
-                          day: '2-digit', month: '2-digit', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit', second: '2-digit'
-                        })}
-                      </td>
-
-                      {/* 6) Data modyfikacji */}
-                      <td data-label="Data modyfikacji" className="reg-date-cell">
-                        {new Date(reg.updatedAt).toLocaleString('pl-PL', {
-                          day: '2-digit', month: '2-digit', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit', second: '2-digit'
-                        })}
-                      </td>
-
-                      {/* 7) Płeć z profilu użytkownika */}
-                      <td data-label="Płeć">{genderChip(reg.user?.gender)}</td>
-
-                      {/* 8) Preferowana kategoria (z profilu) */}
-                      <td data-label="Preferowana kat.">{categoryChip(reg.user?.preferredCategory)}</td>
-
-                      {/* 9) Akcje: pojedyncze (accept/reject/cancel/restore) */}
-                      <td data-label="Akcje" className="actions-cell">
-                        {reg.status === 'pending' ? (
-                          <>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'accepted')}
-                              className="btn-icon btn-approve"
-                            >
-                              Akceptuj
-                            </button>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'rejected')}
-                              className="btn-icon btn-reject"
-                            >
-                              Odrzuć
-                            </button>
-                          </>
-
-                        ) : reg.status === 'invited' ? (
-                          <>
-                            <span style={{ marginRight: 8, fontStyle: 'italic' }}>
-                              Czeka na akceptację zawodnika
-                            </span>
-                            <button
-                              onClick={() => handleCancelInvite(reg.id)}
-                              className="btn-icon btn-delete"
-                            >
-                              Anuluj zaproszenie
-                            </button>
-                          </>
-
-                        ) : reg.status === 'accepted' ? (
-                          <>
-                            <span className="reg-admin-status-approved">✓ Zaakceptowane</span>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'pending')}
-                              className="btn-icon btn-delete"
-                            >
-                              Anuluj
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="reg-admin-status-rejected">✕ Odrzucone</span>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'pending')}
-                              className="btn-icon btn-approve"
-                            >
-                              Przywróć
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Widok kart dla urządzeń mobilnych */}
-          {isMobile && (
-            <div className="registrations-cards-list">
-              {paginatedData.map((reg) => (
-                <div key={reg.id} className="registration-card">
-                  <div className="card-header" onClick={() => toggleRowExpansion(reg.id)}>
-                    <div className="card-title">
-                      <input
-                        type="checkbox"
-                        className="card-checkbox"
-                        checked={selectedIds.includes(reg.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleSelect(reg.id);
-                        }}
-                      />
-                      <h4>{reg.user.name} {reg.user.surname}</h4>
+                      </span>
+                      {expandedRows[reg.id] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                     </div>
-                    <span className={
-                      reg.status === 'pending' ? 'reg-admin-status-pending'
-                        : reg.status === 'invited' ? 'reg-admin-status-invited'
-                          : reg.status === 'accepted' ? 'reg-admin-status-accepted'
-                            : 'reg-admin-status-rejected'
-                    }>
-                      {reg.status === 'pending'
-                        ? 'Oczekujące'
-                        : reg.status === 'invited'
-                          ? 'Zaproszony'
-                          : reg.status === 'accepted'
-                            ? 'Zaakceptowane'
-                            : 'Odrzucone'}
-                    </span>
-                    {expandedRows[reg.id] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </div>
 
-                  {expandedRows[reg.id] && (
-                    <div className="card-details">
-                      <p><strong>Email:</strong> {reg.user.email}</p>
-                      <p>
-                        <strong>Data zgłoszenia:</strong> {new Date(reg.createdAt).toLocaleString('pl-PL', {
-                          day: '2-digit', month: '2-digit', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit', second: '2-digit'
-                        })}
-                      </p>
-                      <p>
-                        <strong>Data modyfikacji:</strong> {new Date(reg.updatedAt).toLocaleString('pl-PL', {
-                          day: '2-digit', month: '2-digit', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit', second: '2-digit'
-                        })}
-                      </p>
-                      <div className="card-actions-mobile">
-                        {reg.status === 'pending' ? (
-                          <>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'accepted')}
-                              className="btn-icon btn-approve"
-                            >
-                              <CheckCircle size={18} /> Zatwierdź
-                            </button>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'rejected')}
-                              className="btn-icon btn-reject"
-                            >
-                              <XCircle size={18} /> Odrzuć
-                            </button>
-                          </>
-                        ) : reg.status === 'invited' ? (
-                          <>
-                            <span style={{ marginRight: 8, fontStyle: 'italic' }}>
-                              Czeka na akceptację zawodnika
-                            </span>
-                            <button
-                              onClick={() => handleCancelInvite(reg.id)}
-                              className="btn-icon btn-delete"
-                            >
-                              <Trash2 size={18} /> Anuluj zaproszenie
-                            </button>
-                          </>
-                        ) : reg.status === 'accepted' ? (
-                          <>
-                            <span className="reg-action-status-indicator">✓ Zaakceptowane</span>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'pending')}
-                              className="btn-icon btn-delete"
-                            >
-                              <Trash2 size={18} /> Anuluj
-                            </button>
-                          </>
-                        ) : ( // reg.status === 'rejected'
-                          <>
-                            <span className="reg-action-status-indicator">✕ Odrzucone</span>
-                            <button
-                              onClick={() => handleStatusChange(reg.id, 'pending')}
-                              className="btn-icon btn-approve"
-                            >
-                              <CheckCircle size={18} /> Przywróć
-                            </button>
-                          </>
-                        )}
+                    {expandedRows[reg.id] && (
+                      <div className="card-details">
+                        <p><strong>Email:</strong> {reg.user.email}</p>
+                        <p><strong>Opiekun:</strong> {guardianLabel}</p>
+                        <p>
+                          <strong>Data zgłoszenia:</strong> {new Date(reg.createdAt).toLocaleString('pl-PL', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                          })}
+                        </p>
+                        <p>
+                          <strong>Data modyfikacji:</strong> {new Date(reg.updatedAt).toLocaleString('pl-PL', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                          })}
+                        </p>
+                        <div className="card-actions-mobile">
+                          {reg.status === 'pending' ? (
+                            <>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'accepted')}
+                                className="btn-icon btn-approve"
+                              >
+                                <CheckCircle size={18} /> Zatwierdź
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'rejected')}
+                                className="btn-icon btn-reject"
+                              >
+                                <XCircle size={18} /> Odrzuć
+                              </button>
+                            </>
+                          ) : reg.status === 'invited' ? (
+                            <>
+                              <span style={{ marginRight: 8, fontStyle: 'italic' }}>
+                                Czeka na akceptację zawodnika
+                              </span>
+                              <button
+                                onClick={() => handleCancelInvite(reg.id)}
+                                className="btn-icon btn-delete"
+                              >
+                                <Trash2 size={18} /> Anuluj zaproszenie
+                              </button>
+                            </>
+                          ) : reg.status === 'accepted' ? (
+                            <>
+                              <span className="reg-action-status-indicator">✓ Zaakceptowane</span>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'pending')}
+                                className="btn-icon btn-delete"
+                              >
+                                <Trash2 size={18} /> Anuluj
+                              </button>
+                            </>
+                          ) : ( // reg.status === 'rejected'
+                            <>
+                              <span className="reg-action-status-indicator">✕ Odrzucone</span>
+                              <button
+                                onClick={() => handleStatusChange(reg.id, 'pending')}
+                                className="btn-icon btn-approve"
+                              >
+                                <CheckCircle size={18} /> Przywróć
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </>

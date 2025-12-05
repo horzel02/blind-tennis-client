@@ -2,6 +2,15 @@
 const API_BASE_URL = 'http://localhost:5000';
 const AUTH_API = `${API_BASE_URL}/api/auth`;
 
+export const PASSWORD_RULE =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+export const PASSWORD_RULE_MESSAGE =
+  'Hasło musi mieć min. 8 znaków, zawierać małą i dużą literę, cyfrę oraz znak specjalny.';
+
+export function validatePasswordComplexity(password) {
+  return PASSWORD_RULE.test(password || '');
+}
+
 export async function register(data) {
   const res = await fetch(`${AUTH_API}/register`, {
     method: 'POST',
@@ -52,4 +61,32 @@ export async function fetchProfile() {
   }
   if (!res.ok) throw new Error('Błąd pobierania profilu');
   return res.json();
+}
+
+export async function changePassword(data) {
+  const res = await fetch(`${AUTH_API}/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(payload?.error || payload?.message || 'Nie udało się zmienić hasła.');
+  }
+  return payload;
+}
+
+export async function updatePreferences(data) {
+  const res = await fetch(`${AUTH_API}/preferences`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(payload?.error || payload?.message || 'Nie udało się zapisać preferencji.');
+  }
+  return payload;
 }

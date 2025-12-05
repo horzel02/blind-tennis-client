@@ -241,6 +241,8 @@ export default function TournamentDetailsPage() {
   const isCreator = user?.id === organizer_id;
   const isTournyOrg = roles.some((r) => r.role === 'organizer' && r.user.id === user?.id);
   const address = `${street}, ${postalCode} ${city}, ${country}`;
+  const isInviteOnly = type === 'invite';
+  const isFull = Number.isFinite(limit) && acceptedCount >= limit;
 
   // ====== Normalizacja płci  ======
   const norm = (g) => {
@@ -310,10 +312,9 @@ export default function TournamentDetailsPage() {
   const genderChips = computeGenderChips(tournament);
 
   const formulaLabel = ({
-  open: 'Open',
-  towarzyski: 'Towarzyski',
-  mistrzowski: 'Mistrzowski'
-})[tournament.formula] || 'Open';
+    towarzyski: 'Towarzyski',
+    mistrzowski: 'Mistrzowski'
+  })[tournament.formula] || 'Open';
 
 
   const openGuardianModalFor = (pid) => {
@@ -518,6 +519,7 @@ export default function TournamentDetailsPage() {
 
   const renderProgressBar = (current, total) => {
     const pct = total ? Math.round((current / total) * 100) : 0;
+
     return (
       <div className="progress-bar" aria-label={`${current}/${total} uczestników`}>
         <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -569,8 +571,16 @@ export default function TournamentDetailsPage() {
             <Clock size={16} /> {new Date(start_date).toLocaleDateString()} – {new Date(end_date).toLocaleDateString()}
           </p>
           <p className="icon-label">
-            <Users size={16} /> Status zapisów: {applicationsOpen ? 'otwarta' : 'zamknięta'}
+            <Users size={16} /> Status zapisów:{' '}
+            {isInviteOnly
+              ? 'tylko na zaproszenie'
+              : isFull
+                ? 'lista pełna (brak miejsc)'
+                : applicationsOpen
+                  ? 'otwarta'
+                  : 'zamknięta'}
           </p>
+
           <p className="icon-label">
             <Users size={16} /> Limit miejsc: {participant_limit || '∞'}
           </p>
@@ -598,7 +608,7 @@ export default function TournamentDetailsPage() {
         {readOnly && (
           <p className="muted">Ten turniej jest zablokowany — akcje uczestników są niedostępne.</p>
         )}
-        {!isLoggedIn && <p>Musisz się <a href="/login">zalogować</a>.</p>}
+        {!isLoggedIn && <p>Musisz się <a href="/login">zalogować</a>, aby się zapisać</p>}
 
         {isLoggedIn && registrationStatus === 'invited' && (
           <>
@@ -654,7 +664,17 @@ export default function TournamentDetailsPage() {
               </button>
             </>
           ) : registrationStatus === 'accepted' ? (
-            <p>Jesteś zakwalifikowany do turnieju!</p>
+            <>
+              <p>Jesteś zakwalifikowany do turnieju!</p>
+              <button
+                className="btn-secondary"
+                onClick={handleUnregister}
+                disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}
+              >
+                Wypisz się z turnieju
+              </button>
+            </>
           ) : (
             <p>Niestety, Twoje zgłoszenie zostało odrzucone.</p>
           )
@@ -793,6 +813,28 @@ export default function TournamentDetailsPage() {
           <div className="organizer-actions">
             <h2>Opcje organizatora:</h2>
             <div className="actions-toolbar">
+              <button className="btn-primary" onClick={() => navigate(`/tournaments/${tournament.id}/manage/registrations`)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
+                Zarządzaj zgłoszeniami
+              </button>
+              <button className="btn-primary" onClick={() => setPlayerModalOpen(true)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
+                Dodaj zawodnika
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleGenerateMatches}
+                disabled={readOnly}
+                title={readOnly
+                  ? 'Turniej zablokowany'
+                  : 'Na podstawie ustawień turnieju utworzy grupy i/lub drabinkę KO oraz mecze'}
+              >
+                Utwórz strukturę meczów
+              </button>
+              <button className="btn-primary" onClick={() => setRefereeModalOpen(true)} disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
+                Zaproś sędziego
+              </button>
               <button className="btn-secondary" onClick={() => navigate(`/tournaments/${tournament.id}/edit`)} disabled={readOnly}
                 title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Edytuj turniej
@@ -800,22 +842,6 @@ export default function TournamentDetailsPage() {
               <button className="btn-delete" onClick={handleDelete} disabled={readOnly}
                 title={readOnly ? 'Turniej jest już usunięty' : undefined}>
                 Usuń turniej
-              </button>
-              <button className="btn-primary" onClick={() => setPlayerModalOpen(true)} disabled={readOnly}
-                title={readOnly ? 'Turniej zablokowany' : undefined}>
-                Dodaj zawodnika
-              </button>
-              <button className="btn-primary" onClick={() => navigate(`/tournaments/${tournament.id}/manage/registrations`)} disabled={readOnly}
-                title={readOnly ? 'Turniej zablokowany' : undefined}>
-                Zarządzaj zgłoszeniami
-              </button>
-              <button className="btn-primary" onClick={handleGenerateMatches} disabled={readOnly}
-                title={readOnly ? 'Turniej zablokowany' : undefined}>
-                Generuj mecze
-              </button>
-              <button className="btn-primary" onClick={() => setRefereeModalOpen(true)} disabled={readOnly}
-                title={readOnly ? 'Turniej zablokowany' : undefined}>
-                Zaproś sędziego
               </button>
             </div>
           </div>

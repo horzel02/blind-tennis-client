@@ -1,3 +1,4 @@
+// src/components/MatchScorePanel.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getMatchById, updateMatchScore } from '../services/matchService';
@@ -5,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import io from 'socket.io-client';
 import '../styles/matchScorePanel.css';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { toast } from 'react-toastify';
 
 function normalizeTieBreak(raw) {
     if (!raw) return 'normal';
@@ -45,7 +47,6 @@ function limitForSetAt(index, setsArr, rules) {
     const isNoTB = ['notiebreak', 'brak', 'no', 'bez'].includes(tb);
     const isSuperTB = ['supertiebreak', 'supertie', 'super'].includes(tb);
 
-    // policz wygrane przed tym setem
     let a = 0, b = 0;
     for (let i = 0; i < index && i < setsArr.length; i++) {
         const s = setsArr[i];
@@ -56,9 +57,15 @@ function limitForSetAt(index, setsArr, rules) {
             if (s.p1 > s.p2) a++; else b++;
         }
     }
+
     const isDecider = (index === (maxSets - 1)) && (a === b);
 
-    if (isSuperTB && isDecider) return rules.superTbPoints;
+    if (isSuperTB && isDecider) {
+        const currentSet = setsArr[index] || { p1: 0, p2: 0 };
+        const currentMax = Math.max(currentSet.p1, currentSet.p2);
+        return currentMax >= (rules.superTbPoints - 1) ? currentMax + 2 : rules.superTbPoints;
+    }
+
     if (isNoTB) return undefined;
     return rules.gamesPerSet + 1;
 }
@@ -79,9 +86,8 @@ function isSetCompleteAt(index, setsArr, rules) {
     const tb = String(rules.tieBreakType || '').toLowerCase().replace(/[\s\-_]/g, '');
     const isNoTB = ['notiebreak', 'brak', 'no', 'bez'].includes(tb);
     const isSuperTB = ['supertiebreak', 'supertie', 'super'].includes(tb);
-
     const maxSets = rules.setsToWin * 2 - 1;
-    // policz wygrane przed tym setem
+
     let a = 0, b = 0;
     for (let i = 0; i < index && i < setsArr.length; i++) {
         const s = setsArr[i];
@@ -92,28 +98,28 @@ function isSetCompleteAt(index, setsArr, rules) {
             if (s.p1 > s.p2) a++; else b++;
         }
     }
-    const isDecider = (index === (maxSets - 1)) && (a === b);
 
+    const isDecider = (index === (maxSets - 1)) && (a === b);
     const s = setsArr[index] || { p1: 0, p2: 0 };
     const w = Math.max(s.p1, s.p2);
     const l = Math.min(s.p1, s.p2);
     const diff = w - l;
 
     if (isSuperTB && isDecider) {
-        return (w === rules.superTbPoints && l < rules.superTbPoints);
+        return (w >= rules.superTbPoints && diff >= 2);
     }
+
     if (isNoTB) {
         return (w >= rules.gamesPerSet && diff >= 2);
     }
-    // zwykły TB
+
     const N = rules.gamesPerSet;
     if (w === N && diff >= 2) return true;
+    if (w === N + 1 && l === N - 1) return true;
     if (w === N + 1 && l === N) return true;
-    if (w === N + 1 && l === N - 1 && diff === 2) return true;
+
     return false;
 }
-
-
 
 export default function MatchScorePanel() {
     const { matchId } = useParams();
@@ -308,64 +314,101 @@ export default function MatchScorePanel() {
     };
 
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setMessage('');
-        setError('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage('');
+    setError('');
 
-        if (!user) {
-            setError('Musisz być zalogowany, aby wprowadzić wynik.');
-            return;
-        }
-        if (user?.id !== match?.referee?.id) {
-            setError('403 – tylko sędzia może wprowadzać wynik tego meczu.');
-            return;
+    // Walidacja wstępna - czy user to sędzia
+    if (!user) {
+      const msg = 'Musisz być zalogowany, aby wprowadzić wynik.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (user?.id !== match?.referee?.id) {
+      const msg = '403 – tylko sędzia może wprowadzać wynik tego meczu.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    // ============================================================
+    // 1. KROK POTWIERDZENIA (CONFIRMATION DIALOG)
+    // ============================================================
+    const isConfirmed = window.confirm(
+      "Czy na pewno chcesz zapisać ten wynik?\n\n" +
+      "Tej operacji nie będzie można łatwo cofnąć. Upewnij się, że wynik jest poprawny."
+    );
+
+    if (!isConfirmed) {
+      return; // Przerwij, jeśli użytkownik kliknął "Anuluj"
+    }
+
+    try {
+      if (resultType !== 'NORMAL') {
+        // Zakończenie administracyjne (WO/DQ/RET)
+        const winnerId = adminWinner === 'p1' ? match.player1?.id : match.player2?.id;
+        if (!winnerId) {
+          toast.warn('Wybierz zwycięzcę.');
+          return;
         }
 
-        try {
-            if (resultType !== 'NORMAL') {
-                // Zakończenie administracyjne: zwycięzca z wyboru, bez setów
-                const winnerId = adminWinner === 'p1' ? match.player1?.id : match.player2?.id;
-                if (!winnerId) {
-                    setError('Wybierz zwycięzcę.');
-                    return;
-                }
-                function mapOutcome(rt) {
-                    if (rt === 'WO') return 'WALKOVER';
-                    if (rt === 'DQ') return 'DISQUALIFICATION';
-                    if (rt === 'RET') return 'RETIREMENT';
-                    return 'NORMAL';
-                }
-                await updateMatchScore(matchId, {
-                    status: 'finished',
-                    winnerId,
-                    outcome: mapOutcome(resultType),
-                    matchSets: [],
-                });
-            } else {
-                const winnerId = calcWinnerId();
-                if (!winnerId) {
-                    setError(`Wynik nie rozstrzyga meczu. Potrzeba ${setsToWin} wygranych setów.`);
-                    return;
-                }
-                const payload = {
-                    status: 'finished',
-                    winnerId,
-                    matchSets: sets.slice(0, maxSets).map((s, i) => ({
-                        setNumber: i + 1,
-                        player1Score: s.p1,
-                        player2Score: s.p2,
-                    })),
-                };
-                await updateMatchScore(matchId, payload);
-            }
-
-            setMessage('Wynik został zapisany!');
-            navigate(`/tournaments/${match.tournamentId}/details`, { replace: true });
-        } catch (err) {
-            setError(err.message || 'Błąd podczas aktualizacji wyniku.');
+        function mapOutcome(rt) {
+          if (rt === 'WO') return 'WALKOVER';
+          if (rt === 'DQ') return 'DISQUALIFICATION';
+          if (rt === 'RET') return 'RETIREMENT';
+          return 'NORMAL';
         }
-    };
+
+        await updateMatchScore(matchId, {
+          status: 'finished',
+          winnerId,
+          outcome: mapOutcome(resultType),
+          matchSets: [],
+        });
+      } else {
+        // Normalne zakończenie (z setami)
+        const winnerId = calcWinnerId();
+        if (!winnerId) {
+          // Tutaj też używamy toast zamiast tylko settera, żeby było widać
+          toast.warn(`Wynik nie rozstrzyga meczu. Potrzeba ${rules.setsToWin} wygranych setów.`);
+          return;
+        }
+
+        const payload = {
+          status: 'finished',
+          winnerId,
+          matchSets: sets.slice(0, maxSets).map((s, i) => ({
+            setNumber: i + 1,
+            player1Score: s.p1,
+            player2Score: s.p2,
+          })),
+        };
+
+        await updateMatchScore(matchId, payload);
+      }
+
+      // Sukces
+      toast.success('Wynik został zapisany pomyślnie!');
+      navigate(`/tournaments/${match.tournamentId}/details`, { replace: true });
+
+    } catch (err) {
+      // ============================================================
+      // 2. OBSŁUGA BŁĘDÓW (ERROR HANDLING)
+      // ============================================================
+      console.error("Błąd zapisu wyniku:", err);
+      
+      // Wyciągamy czytelną wiadomość z błędu (backend zazwyczaj zwraca err.message lub err.payload.error)
+      const errorMsg = err?.payload?.error || err?.message || 'Wystąpił nieoczekiwany błąd podczas zapisu.';
+      
+      // 1. Pokaż w Toast (dymek)
+      toast.error(errorMsg);
+      
+      // 2. Pokaż też w interfejsie (czerwony napis pod przyciskiem), żeby nie znikało
+      setError(errorMsg);
+    }
+  };
 
     if (loading) return <p>Ładowanie panelu sędziowskiego…</p>;
     if (error) return <p className="error">{error}</p>;

@@ -1,5 +1,6 @@
+// src/components/GroupStandings.jsx
 import React, { useEffect, useState, useRef } from 'react';
-import { getGroupStandings} from '../services/matchService';
+import { getGroupStandings } from '../services/matchService';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 
@@ -10,17 +11,16 @@ export default function GroupStandings({ tournamentId, isOrganizer }) {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState([]);
   const [err, setErr] = useState(null);
-  const [resetKey, setResetKey] = useState('QF');
   const socketRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await getGroupStandings(tournamentId);
-      setGroups(data);
+      setGroups(data || []);
       setErr(null);
     } catch (e) {
-      setErr(e.message);
+      setErr(e.message || 'Nie udało się pobrać tabel.');
       setGroups([]);
     } finally {
       setLoading(false);
@@ -34,10 +34,13 @@ export default function GroupStandings({ tournamentId, isOrganizer }) {
   useEffect(() => {
     const s = io(API_URL, { withCredentials: true });
     socketRef.current = s;
+
     const tid = Number(tournamentId);
     s.emit('join-tournament', tid);
 
-    const onInvalidate = () => { load(); };
+    const onInvalidate = () => {
+      load();
+    };
     s.on('standings-invalidate', onInvalidate);
 
     return () => {
@@ -49,9 +52,12 @@ export default function GroupStandings({ tournamentId, isOrganizer }) {
 
   return (
     <section className="group-standings">
-      <div className="matches-header">
+      <header className="group-standings-header">
         <h2 className="section-title">Faza grupowa – tabele</h2>
-      </div>
+        <p className="group-standings-subtitle">
+          Bilans meczów, setów i gemów w poszczególnych grupach.
+        </p>
+      </header>
 
       {loading ? (
         <p>Ładowanie tabel…</p>
@@ -60,42 +66,62 @@ export default function GroupStandings({ tournamentId, isOrganizer }) {
       ) : !groups.length ? (
         <p>Brak danych tabelowych.</p>
       ) : (
-        <div className="groups-grid">
-          {groups.map(g => (
-            <div key={g.group} className="group-card">
-              <h3>{g.group}</h3>
-              <table className="standings-table">
-                <thead>
-                  <tr>
-                    <th>Zawodnik</th>
-                    <th>M</th>
-                    <th>W</th>
-                    <th>P</th>
-                    <th>Sety</th>
-                    <th>Gemy</th>
-                    <th>Pkt</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.standings.map(row => (
-                    <tr key={row.userId}>
-                      <td>{row.name} {row.surname}</td>
-                      <td>{row.played}</td>
-                      <td>{row.wins}</td>
-                      <td>{row.losses}</td>
-                      <td>{row.setsWon}:{row.setsLost}</td>
-                      <td>{row.gamesWon}:{row.gamesLost}</td>
-                      <td>{row.points}</td>
+        <div className="group-standings-grid">
+          {groups.map((g) => (
+            <article key={g.group} className="group-card">
+              <header className="group-card-header">
+                <h3 className="group-card-title">{g.group}</h3>
+                {isOrganizer && (
+                  <span className="group-card-pill">
+                    {g.standings?.length || 0} zawodników
+                  </span>
+                )}
+              </header>
+
+              <div className="group-table-wrapper">
+                <table className="standings-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Zawodnik</th>
+                      <th title="Mecze">M</th>
+                      <th title="Wygrane">W</th>
+                      <th title="Przegrane">P</th>
+                      <th>Sety</th>
+                      <th>Gemy</th>
+                      <th>Pkt</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {g.standings.map((row, idx) => (
+                      <tr key={row.userId}>
+                        <td className="col-rank">{idx + 1}</td>
+                        <td className="col-player">
+                          <span className="player-name">
+                            {row.name} {row.surname}
+                          </span>
+                        </td>
+                        <td>{row.played}</td>
+                        <td>{row.wins}</td>
+                        <td>{row.losses}</td>
+                        <td>
+                          {row.setsWon}:{row.setsLost}
+                        </td>
+                        <td>
+                          {row.gamesWon}:{row.gamesLost}
+                        </td>
+                        <td className="col-points">{row.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
           ))}
         </div>
       )}
 
-      <div className="header-actions">
+      <div className="header-actions" style={{ marginTop: '1.5rem' }}>
         <button
           className="btn-primary"
           onClick={() => navigate(`/tournaments/${tournamentId}/bracket`)}

@@ -12,7 +12,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const socketRef = useRef(null);
 
-  // 1) Ładowanie profilu na starcie
   useEffect(() => {
     (async () => {
       try {
@@ -27,7 +26,6 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  // 2) Socket – startujemy tylko, gdy user istnieje
   useEffect(() => {
     if (!user?.id) {
       if (socketRef.current) {
@@ -40,7 +38,7 @@ export function AuthProvider({ children }) {
     const s = io(API_URL, { withCredentials: true });
     socketRef.current = s;
 
-    const onForceLogout = (payload) => {
+    const onForceLogout = () => {
       try { s.disconnect(); } catch {}
       toast.error('Twoje konto zostało wylogowane przez administratora.');
       setUser(null);
@@ -73,8 +71,23 @@ export function AuthProvider({ children }) {
     socketRef.current = null;
   };
 
+  const changePassword = async ({ currentPassword, newPassword }) => {
+    await authService.changePassword({ currentPassword, newPassword });
+    toast.success('Hasło zostało zmienione.');
+  };
+
+  const updatePreferences = async ({ preferredCategory }) => {
+    const updated = await authService.updatePreferences({ preferredCategory });
+    setUser((prev) =>
+      prev ? { ...prev, preferredCategory: updated.preferredCategory } : prev
+    );
+    toast.success('Zapisano preferencje.');
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, logout, changePassword, updatePreferences }}
+    >
       {children}
     </AuthContext.Provider>
   );

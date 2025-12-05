@@ -207,7 +207,7 @@ export default function NotificationBell() {
   return (
     <div className="notif-bell" ref={ref}>
       <button
-        className="icon-btn"
+        className="icon-button"
         onClick={async () => {
           const willOpen = !open;
           setOpen(willOpen);
@@ -215,7 +215,7 @@ export default function NotificationBell() {
         }}
         aria-label="Powiadomienia"
       >
-        <Bell size={18} />
+        <Bell size={24} />
         {unread > 0 && <span className="badge">{unread}</span>}
       </button>
 

@@ -99,32 +99,37 @@
 .aside-text h3 {
   font-size: 1.75rem;
   margin-bottom: 0.5rem;
+  color: #ffffff !important; /* Biały tekst nagłówka na fioletowym tle */
 }
+
 .aside-text p {
   font-size: 1rem;
   margin-bottom: 1.5rem;
   line-height: 1.4;
-  max-width: 90%;
-  margin-left: auto;
-  margin-right: auto;
+  color: rgba(255, 255, 255, 0.9) !important; /* Lekko przezroczysty biały */
 }
 
 /* ========================================================================== */
-/* 6. ASIDE BUTTON                                                            */
+/* 6. ASIDE BUTTON - Poprawione kolory                                        */
 /* ========================================================================== */
 
 .aside-button {
-  background-color: #ffffff;
-  color: var(--ct-primary);
+  display: inline-block;        /* Żeby padding działał poprawnie na linku */
+  background-color: #ffffff;    /* Białe tło przycisku */
+  color: var(--ct-primary) !important; /* FIOLETOWY TEKST (wymuszenie) */
   padding: 0.75rem 1.5rem;
   border-radius: 4px;
-  font-weight: 500;
+  font-weight: 600;             /* Nieco grubszy tekst */
   text-decoration: none;
-  transition: background-color .2s, color .2s;
+  transition: all 0.2s ease-in-out;
+  border: 2px solid transparent; /* Rezerwacja miejsca na border */
 }
+
 .aside-button:hover {
-  background-color: rgba(255, 255, 255, 0.8);
-  color: var(--ct-accent);
+  background-color: #f0f0f0;    /* Lekko szare tło po najechaniu */
+  color: var(--ct-accent) !important; /* Jaśniejszy fiolet tekstu */
+  transform: translateY(-2px);  /* Lekkie uniesienie */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 /* ========================================================================== */

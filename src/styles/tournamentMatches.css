@@ -239,10 +239,11 @@
   position: fixed; inset: 0;
   background: rgba(17, 24, 39, 0.55);
   display: flex; align-items: center; justify-content: center;
-  z-index: 1000;
+  z-index: 10000000;
 }
 .pair-modal__card{
-  width: min(560px, calc(100% - 32px));
+  width: min(720px, calc(100% - 32px));
+  
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,.15);
@@ -255,7 +256,7 @@
 }
 .pair-modal__header h3{ margin: 0; font-size: 18px; font-weight: 700; }
 .pair-modal__close{ background: transparent; border: none; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; }
-.pair-modal__body{ padding: 16px 20px 8px; }
+.pair-modal__body{ padding: 16px 20px 8px; min-height: 150px;  }
 .pair-modal__footer{
   padding: 12px 20px 16px;
   display: flex; align-items: center; gap: 8px;
@@ -275,6 +276,17 @@
   border-color: #8b5cf6;
   box-shadow: 0 0 0 3px rgba(139,92,246,.15);
 }
+
+/* podbij kontekst na fokusie */
+.pairing-row { position: relative; z-index: 1; }
+.pairing-row:focus-within { z-index: 1000; }
+
+.pairing-combo { position: relative; z-index: 2; }
+.pairing-combo:focus-within { z-index: 10000; }
+
+/* lista ponad inputem */
+.pairing-list { z-index: 10001 !important; background:#fff; }
+
 .pairing-list {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0;
   max-height: 240px; overflow: auto; background: #fff;
@@ -331,4 +343,66 @@
   font-size: 12px;
   line-height: 1.2;
   color: #b45309; /* bursztyn / amber-700 */
+}
+
+/* --- PARING DROPDOWN: zawsze nad sąsiadami --- */
+.pair-modal__body,
+.pairing-row,
+.pairing-combo { position: relative; overflow: visible; z-index: 0; }
+
+.pairing-list {
+  position: absolute;          /* kotwica: pairing-combo */
+  z-index: 100000 !important;  /* nadrabia wszelkie stacking-contexty */
+}
+
+/* w HC bywa, że nast. wiersz łapie "nad" – zbij mu z-index */
+html.hc .pairing-row { z-index: 0 !important; }
+
+/* === FIX: pairing dropdown over inputs === */
+.pairing-row { position: relative; z-index: 1; }
+.pairing-row:focus-within { z-index: 1000; }
+
+.pairing-combo { position: relative; z-index: 2; }
+.pairing-combo:focus-within { z-index: 10000; } /* aktywne combo ponad resztą */
+
+.pairing-list {
+  position: absolute;
+  z-index: 10001 !important;   /* lista zawsze nad inputem i sąsiadami */
+  background: #fff;            /* pełne, nieprzezroczyste tło w normalnym trybie */
+}
+
+/* High-Contrast / Dark – nieprzezroczyste tło i żółte obrysy */
+html.hc .pairing-list {
+  background: #000 !important;
+  border-color: var(--hc-border, #FFD600) !important;
+}
+
+/* --- POPRAWKA: Kontrolowanie kolejności nakładania się list graczy (dropdown) --- */
+/* Zapewnia, że lista P1 jest zawsze nad listą P2, jeśli się stykają/nachodzą */
+.pairing-combo.player-one {
+    z-index: 2; /* Wyższy z-index dla Gracz 1 */
+}
+.pairing-combo.player-two {
+    z-index: 1; /* Niższy z-index dla Gracz 2 */
+}
+
+/* Wciąż obowiązuje wysoki z-index na samą listę: */
+.pairing-list {
+  position: absolute;
+  z-index: 100000 !important;
+}
+/* Dwie kolumny w modalu parowania KO */
+.pairing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Mobile: pod sobą */
+@media (max-width: 640px) {
+  .pairing-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }

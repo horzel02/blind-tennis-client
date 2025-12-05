@@ -12,7 +12,8 @@ export default function TournamentForm({
   initialData = null,
   onSubmit,
   title,
-  submitText
+  submitText,
+  fieldLocks = { hasGroups: false, hasKO: false }
 }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -26,35 +27,30 @@ export default function TournamentForm({
   ];
 
   const emptyForm = {
-    // podstawowe
     name: '',
     description: '',
     category: '',
     gender: '',
-    formula: 'open',
+    formula: 'towarzyski',
+    type: 'open',
     start_date: '',
     end_date: '',
     registration_deadline: '',
-    // lokalizacja
     street: '',
     postalCode: '',
     city: '',
     country: '',
-    // limit / status
     participant_limit: '',
     applicationsOpen: true,
-    // reguły gry
     setsToWin: 2,
     gamesPerSet: 6,
     tieBreakType: 'super_tie_break',
-    // format/KO/grupy (NOWE)
-    format: 'GROUPS_KO',          // 'GROUPS_KO' | 'KO_ONLY'
-    groupSize: 4,                 // 3 lub 4 (dla GROUPS_KO)
-    qualifiersPerGroup: 2,        // 1 lub 2 (dla GROUPS_KO)
+    format: 'GROUPS_KO',
+    groupSize: 4,
+    qualifiersPerGroup: 2,
     allowByes: true,
-    koSeedingPolicy: 'RANDOM_CROSS', // 'RANDOM_CROSS' | 'STRUCTURED'
+    koSeedingPolicy: 'RANDOM_CROSS',
     avoidSameGroupInR1: true,
-    // legacy
     isGroupPhase: true,
   };
 
@@ -64,7 +60,10 @@ export default function TournamentForm({
   const isKOonly = form.format === 'KO_ONLY';
   const isGroupsKO = form.format === 'GROUPS_KO';
 
-  // walidacja kroków
+  // 🔒 blokady widoczne w UI
+  const lockStructure = isEdit && (fieldLocks.hasGroups || fieldLocks.hasKO);
+  const lockByes = isEdit && fieldLocks.hasKO;
+
   const isStepValid = s => {
     if (s === 0) {
       if (!form.name.trim() || !form.category || !form.gender) return false;
@@ -73,13 +72,10 @@ export default function TournamentForm({
       if (!form.start_date || !form.end_date) return false;
     }
     if (s === 3) {
-      // KO ONLY 
       if (isKOonly) {
         const lim = toInt(form.participant_limit);
         if (!lim || !ALLOWED_BRACKETS.includes(lim)) return false;
       }
-
-      // GROUPS+KO
       if (isGroupsKO) {
         if (![3, 4].includes(Number(form.groupSize))) return false;
         if (![1, 2].includes(Number(form.qualifiersPerGroup))) return false;
@@ -106,10 +102,12 @@ export default function TournamentForm({
         ...initialData,
         format: fmt,
         isGroupPhase: fmt === 'GROUPS_KO',
-        formula: initialData.formula ?? initialData.type ?? 'open',
+        formula: initialData.formula ?? 'towarzyski',
+        type: initialData.type ?? 'open',
       });
     }
   }, [initialData]);
+
 
   useEffect(() => {
     if (!isEdit) {
@@ -118,7 +116,6 @@ export default function TournamentForm({
     }
   }, [isEdit]);
 
-  // spójność dat
   useEffect(() => {
     if (!form.start_date) return;
     const start = new Date(form.start_date);
@@ -133,12 +130,10 @@ export default function TournamentForm({
     }
   }, [form.start_date]);
 
-  // format → legacy flaga
   useEffect(() => {
     setForm(f => ({ ...f, isGroupPhase: f.format === 'GROUPS_KO' }));
   }, [form.format]);
 
-  // KO ONLY: automatycznie wymuś wartość participant_limit jako potęgę 2 (jeśli puste)
   useEffect(() => {
     if (isKOonly) {
       setForm(f => ({
@@ -158,22 +153,13 @@ export default function TournamentForm({
     }));
   };
 
-  const goTo = i => {
-    if (i < step || (i > step && isStepValid(step))) setStep(i);
-  };
+  const goTo = i => { if (i < step || (i > step && isStepValid(step))) setStep(i); };
   const next = () => isStepValid(step) && setStep(s => Math.min(s + 1, steps.length - 1));
   const prev = () => setStep(s => Math.max(s - 1, 0));
+  const handleCancel = () => { if (isEdit) navigate(`/tournaments/${id}/details`); else navigate('/tournaments'); };
+  const handleFinalSubmit = () => { onSubmit(form); };
 
-  const handleCancel = () => {
-    if (isEdit) navigate(`/tournaments/${id}/details`);
-    else navigate('/tournaments');
-  };
-
-  const handleFinalSubmit = () => {
-    onSubmit(form);
-  };
-
-  // ==== LIVE kalkulator dla GROUPS_KO
+  // kalkulator
   const groups = useMemo(() => {
     if (!isGroupsKO) return null;
     const limit = toInt(form.participant_limit);
@@ -201,7 +187,6 @@ export default function TournamentForm({
     return Math.max(0, bracketSize - K);
   }, [isGroupsKO, form.allowByes, K, bracketSize]);
 
-  // ostrzeżenia (UI only)
   const warnDivisible =
     isGroupsKO &&
     form.participant_limit &&
@@ -247,50 +232,34 @@ export default function TournamentForm({
           <div className="wizard-card">
             <h3><Tag size={24} /> Podstawowe dane</h3>
             <label htmlFor="name">Nazwa</label>
-            <input
-              id="name" name="name" type="text"
-              value={form.name}
-              onChange={handleChange}
-            />
+            <input id="name" name="name" type="text" value={form.name} onChange={handleChange} />
             <label htmlFor="category">Kategoria</label>
-            <select
-              id="category" name="category"
-              value={form.category}
-              onChange={handleChange}
-            >
+            <select id="category" name="category" value={form.category} onChange={handleChange}>
               <option value="">– wybierz –</option>
-              {['B1', 'B2', 'B3', 'B4'].map(c =>
-                <option key={c} value={c}>{c}</option>
-              )}
+              {['B1', 'B2', 'B3', 'B4'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <label htmlFor="gender">Płeć</label>
-            <select
-              id="gender" name="gender"
-              value={form.gender}
-              onChange={handleChange}
-              disabled={!form.category}
-            >
+            <select id="gender" name="gender" value={form.gender} onChange={handleChange} disabled={!form.category}>
               <option value="">– wybierz –</option>
-              {['M', 'W', 'Coed'].map(g =>
-                <option key={g} value={g}>{g}</option>
-              )}
+              {['M', 'W', 'Coed'].map(g => <option key={g} value={g}>{g}</option>)}
             </select>
             <label htmlFor="formula">Formuła</label>
-            <select
-              id="formula"
-              value={form.formula}
-              onChange={e => setForm(f => ({ ...f, formula: e.target.value }))}
-            >
-              <option value="open">Open</option>
+            <select id="formula" value={form.formula} onChange={e => setForm(f => ({ ...f, formula: e.target.value }))}>
               <option value="towarzyski">Towarzyski</option>
               <option value="mistrzowski">Mistrzowski</option>
             </select>
-            <label htmlFor="description">Opis (opcjonalnie)</label>
-            <textarea
-              id="description" name="description" rows="3"
-              value={form.description}
+            <label htmlFor="type">Tryb zapisów</label>
+            <select
+              id="type"
+              name="type"
+              value={form.type}
               onChange={handleChange}
-            />
+            >
+              <option value="open">Otwarte zgłoszenia</option>
+              <option value="invite">Tylko na zaproszenie</option>
+            </select>
+            <label htmlFor="description">Opis (opcjonalnie)</label>
+            <textarea id="description" name="description" rows="3" value={form.description} onChange={handleChange} />
           </div>
         )}
 
@@ -298,25 +267,11 @@ export default function TournamentForm({
           <div className="wizard-card">
             <h3><Calendar size={24} /> Terminy</h3>
             <label htmlFor="start_date">Data rozpoczęcia</label>
-            <input
-              id="start_date" name="start_date" type="date"
-              value={form.start_date}
-              onChange={handleChange}
-            />
+            <input id="start_date" name="start_date" type="date" value={form.start_date} onChange={handleChange} />
             <label htmlFor="end_date">Data zakończenia</label>
-            <input
-              id="end_date" name="end_date" type="date"
-              value={form.end_date}
-              onChange={handleChange}
-              min={form.start_date || undefined}
-            />
+            <input id="end_date" name="end_date" type="date" value={form.end_date} onChange={handleChange} min={form.start_date || undefined} />
             <label htmlFor="registration_deadline">Deadline rejestracji</label>
-            <input
-              id="registration_deadline" name="registration_deadline" type="date"
-              value={form.registration_deadline}
-              onChange={handleChange}
-              max={form.start_date || undefined}
-            />
+            <input id="registration_deadline" name="registration_deadline" type="date" value={form.registration_deadline} onChange={handleChange} max={form.start_date || undefined} />
           </div>
         )}
 
@@ -324,31 +279,13 @@ export default function TournamentForm({
           <div className="wizard-card">
             <h3><MapPin size={24} /> Lokalizacja</h3>
             <label htmlFor="street">Ulica i numer</label>
-            <input
-              id="street" name="street" type="text"
-              value={form.street}
-              onChange={handleChange}
-            />
+            <input id="street" name="street" type="text" value={form.street} onChange={handleChange} />
             <label htmlFor="postalCode">Kod pocztowy</label>
-            <input
-              id="postalCode" name="postalCode" type="text"
-              pattern="\d{2}-\d{3}"
-              placeholder="00-000"
-              value={form.postalCode}
-              onChange={handleChange}
-            />
+            <input id="postalCode" name="postalCode" type="text" pattern="\d{2}-\d{3}" placeholder="00-000" value={form.postalCode} onChange={handleChange} />
             <label htmlFor="city">Miasto</label>
-            <input
-              id="city" name="city" type="text"
-              value={form.city}
-              onChange={handleChange}
-            />
+            <input id="city" name="city" type="text" value={form.city} onChange={handleChange} />
             <label htmlFor="country">Kraj</label>
-            <input
-              id="country" name="country" type="text"
-              value={form.country}
-              onChange={handleChange}
-            />
+            <input id="country" name="country" type="text" value={form.country} onChange={handleChange} />
           </div>
         )}
 
@@ -356,19 +293,19 @@ export default function TournamentForm({
           <div className="wizard-card">
             <h3><Settings2 size={24} /> Ustawienia</h3>
 
-            {/* FORMAT */}
             <label htmlFor="format">Format</label>
             <select
               id="format"
               name="format"
               value={form.format}
               onChange={handleChange}
+              disabled={lockStructure}
+              title={lockStructure ? 'Nie można zmienić formatu po wygenerowaniu meczów. Zresetuj mecze.' : undefined}
             >
               <option value="GROUPS_KO">Grupy + KO</option>
               <option value="KO_ONLY">Tylko KO</option>
             </select>
 
-            {/* LIMIT/BRACKET */}
             {isKOonly ? (
               <>
                 <label htmlFor="participant_limit">Wielkość drabinki</label>
@@ -377,14 +314,12 @@ export default function TournamentForm({
                   name="participant_limit"
                   value={form.participant_limit}
                   onChange={handleChange}
+                  disabled={lockStructure}
+                  title={lockStructure ? 'Nie można zmienić wielkości drabinki po wygenerowaniu meczów.' : undefined}
                 >
-                  {ALLOWED_BRACKETS.map(n => (
-                    <option key={n} value={n}>{n} zawodników</option>
-                  ))}
+                  {ALLOWED_BRACKETS.map(n => <option key={n} value={n}>{n} zawodników</option>)}
                 </select>
-                <div className="hint">
-                  Rejestracja zostanie domknięta na wybranej wielkości drabinki.
-                </div>
+                <div className="hint">Rejestracja zostanie domknięta na wybranej wielkości drabinki.</div>
               </>
             ) : (
               <>
@@ -396,23 +331,17 @@ export default function TournamentForm({
                   min="2"
                   value={form.participant_limit}
                   onChange={handleChange}
+                  disabled={lockStructure}
+                  title={lockStructure ? 'Nie można zmienić limitu po wygenerowaniu meczów.' : undefined}
                 />
               </>
             )}
 
-            {/* Rejestracja otwarta */}
             <label className="checkbox-line">
-              <input
-                id="applicationsOpen"
-                name="applicationsOpen"
-                type="checkbox"
-                checked={form.applicationsOpen}
-                onChange={handleChange}
-              />
+              <input id="applicationsOpen" name="applicationsOpen" type="checkbox" checked={form.applicationsOpen} onChange={handleChange} />
               <span>Rejestracja otwarta</span>
             </label>
 
-            {/* GROUPS SETTINGS */}
             {isGroupsKO && (
               <>
                 <label htmlFor="groupSize">Rozmiar grup</label>
@@ -421,6 +350,8 @@ export default function TournamentForm({
                   name="groupSize"
                   value={form.groupSize}
                   onChange={handleChange}
+                  disabled={lockStructure}
+                  title={lockStructure ? 'Nie można zmienić rozmiaru grup po wygenerowaniu meczów.' : undefined}
                 >
                   <option value={3}>3</option>
                   <option value={4}>4</option>
@@ -432,6 +363,8 @@ export default function TournamentForm({
                   name="qualifiersPerGroup"
                   value={form.qualifiersPerGroup}
                   onChange={handleChange}
+                  disabled={lockStructure}
+                  title={lockStructure ? 'Nie można zmienić zasad awansu po wygenerowaniu meczów.' : undefined}
                 >
                   <option value={1}>1</option>
                   <option value={2}>2</option>
@@ -444,33 +377,23 @@ export default function TournamentForm({
                     type="checkbox"
                     checked={form.allowByes}
                     onChange={handleChange}
+                    disabled={lockByes}
+                    title={lockByes ? 'Nie można zmieniać BYE po wygenerowaniu KO. Zresetuj KO.' : undefined}
                   />
                   <span>Pozwalaj na BYE (wolne losy przy niepełnej potędze 2)</span>
                 </label>
 
-                <label htmlFor="koSeedingPolicy">Seeding KO</label>
-                <select
-                  id="koSeedingPolicy"
-                  name="koSeedingPolicy"
-                  value={form.koSeedingPolicy}
-                  onChange={handleChange}
-                >
+                <label htmlFor="koSeedingPolicy">Rodzaj generowania fazy pucharowej</label>
+                <select id="koSeedingPolicy" name="koSeedingPolicy" value={form.koSeedingPolicy} onChange={handleChange}>
                   <option value="RANDOM_CROSS">Losowy: zwycięzcy vs drugie</option>
                   <option value="STRUCTURED">Schemat (A1–H2 itd.)</option>
                 </select>
 
                 <label className="checkbox-line">
-                  <input
-                    id="avoidSameGroupInR1"
-                    name="avoidSameGroupInR1"
-                    type="checkbox"
-                    checked={form.avoidSameGroupInR1}
-                    onChange={handleChange}
-                  />
+                  <input id="avoidSameGroupInR1" name="avoidSameGroupInR1" type="checkbox" checked={form.avoidSameGroupInR1} onChange={handleChange} />
                   <span>Unikaj par z tej samej grupy w 1. rundzie</span>
                 </label>
 
-                {/* LIVE kalkulator */}
                 <div className="panel">
                   <strong>Kalkulator:</strong>
                   <div>Grupy: {groups ?? '—'} {groups != null && !groupsAreInt && ' (❗️limit nie dzieli się przez rozmiar grup)'}</div>
@@ -479,20 +402,11 @@ export default function TournamentForm({
                   <div>BYE: {byeCount ?? '—'}</div>
                 </div>
 
-                {warnDivisible && (
-                  <div className="error">
-                    Limit uczestników musi dzielić się przez rozmiar grup.
-                  </div>
-                )}
-                {warnByeOffPower2 && (
-                  <div className="error">
-                    BYE wyłączone: liczba awansujących (K) musi być potęgą 2.
-                  </div>
-                )}
+                {warnDivisible && <div className="error">Limit uczestników musi dzielić się przez rozmiar grup.</div>}
+                {warnByeOffPower2 && <div className="error">BYE wyłączone: liczba awansujących (K) musi być potęgą 2.</div>}
               </>
             )}
 
-            {/* KO ONLY – BYE i seeding też mają sens */}
             {isKOonly && (
               <>
                 <label className="checkbox-line">
@@ -502,47 +416,26 @@ export default function TournamentForm({
                     type="checkbox"
                     checked={form.allowByes}
                     onChange={handleChange}
+                    disabled={lockByes}
+                    title={lockByes ? 'Nie można zmieniać BYE po wygenerowaniu KO. Zresetuj KO.' : undefined}
                   />
                   <span>Pozwalaj na BYE (gdy zapisanych mniej niż drabinka)</span>
                 </label>
 
-                <label htmlFor="koSeedingPolicyKO">Seeding KO</label>
-                <select
-                  id="koSeedingPolicyKO"
-                  name="koSeedingPolicy"
-                  value={form.koSeedingPolicy}
-                  onChange={handleChange}
-                >
+                <label htmlFor="koSeedingPolicyKO">Rodzaj generowania fazy pucharowej</label>
+                <select id="koSeedingPolicyKO" name="koSeedingPolicy" value={form.koSeedingPolicy} onChange={handleChange}>
                   <option value="RANDOM_CROSS">Losowy</option>
                   <option value="STRUCTURED">Schemat</option>
                 </select>
               </>
             )}
 
-            {/* Reguły gry */}
             <label htmlFor="setsToWin">Setów do wygrania</label>
-            <input
-              id="setsToWin"
-              name="setsToWin"
-              type="number"
-              value={form.setsToWin}
-              onChange={handleChange}
-            />
+            <input id="setsToWin" name="setsToWin" type="number" value={form.setsToWin} onChange={handleChange} />
             <label htmlFor="gamesPerSet">Gemów na set</label>
-            <input
-              id="gamesPerSet"
-              name="gamesPerSet"
-              type="number"
-              value={form.gamesPerSet}
-              onChange={handleChange}
-            />
+            <input id="gamesPerSet" name="gamesPerSet" type="number" value={form.gamesPerSet} onChange={handleChange} />
             <label htmlFor="tieBreakType">Rodzaj tie-breaka</label>
-            <select
-              id="tieBreakType"
-              name="tieBreakType"
-              value={form.tieBreakType}
-              onChange={handleChange}
-            >
+            <select id="tieBreakType" name="tieBreakType" value={form.tieBreakType} onChange={handleChange}>
               <option value="normal">Zwykły tie-break</option>
               <option value="super_tie_break">Super tie-break</option>
               <option value="no_tie_break">Brak tie-breaka</option>
@@ -552,39 +445,15 @@ export default function TournamentForm({
       </div>
 
       <div className="wizard-footer">
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={handleCancel}
-        >
-          Anuluj
-        </button>
-        {step > 0 && (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={prev}
-          >
-            « Wstecz
-          </button>
-        )}
+        <button type="button" className="btn-secondary" onClick={handleCancel}>Anuluj</button>
+        {step > 0 && <button type="button" className="btn-secondary" onClick={prev}>« Wstecz</button>}
         {step < steps.length - 1 && (
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={next}
-            disabled={!isStepValid(step)}
-          >
+          <button type="button" className="btn-primary" onClick={next} disabled={!isStepValid(step)}>
             Dalej »
           </button>
         )}
         {step === steps.length - 1 && (
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleFinalSubmit}
-            disabled={!isStepValid(step)}
-          >
+          <button type="button" className="btn-primary" onClick={handleFinalSubmit} disabled={!isStepValid(step)}>
             {submitText}
           </button>
         )}

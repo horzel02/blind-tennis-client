@@ -1,3 +1,4 @@
+// client/src/components/AutoScheduleModal.jsx
 import React, { useEffect, useState } from 'react';
 import * as scheduleApi from '../services/scheduleService';
 import '../styles/scheduleModals.css';

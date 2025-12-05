@@ -1,3 +1,4 @@
+// client/src/pages/PublicProfilePage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Users, Activity, Calendar, Share2 } from 'lucide-react';
@@ -18,6 +19,15 @@ function formatDateTimeNoSeconds(dateLike) {
   if (!dateLike) return '—';
   const d = new Date(dateLike);
   return `${formatDate(d)} ${formatTimeNoSeconds(d)}`;
+}
+
+// Helper do tłumaczenia płci
+function genderPL(g) {
+  if (!g) return '';
+  const s = String(g).toLowerCase();
+  if (s === 'male') return 'Mężczyzna';
+  if (s === 'female') return 'Kobieta';
+  return g; // fallback
 }
 
 export default function PublicProfilePage() {
@@ -57,7 +67,8 @@ export default function PublicProfilePage() {
           <h1 className="profile-name">{displayName}</h1>
           <div className="profile-meta">
             <span>Preferowana kategoria: <strong>{user.preferredCategory || '—'}</strong></span>
-            {user.gender ? <span>• Płeć: <strong>{user.gender}</strong></span> : null}
+            {/* ZMIANA TUTAJ: użycie genderPL */}
+            {user.gender ? <span>• Płeć: <strong>{genderPL(user.gender)}</strong></span> : null}
           </div>
         </div>
         <button onClick={copyLink} className="btn-secondary share-btn">
@@ -108,7 +119,7 @@ export default function PublicProfilePage() {
                 <div className="muted">Brak</div>
               ) : upcoming.asPlayer.map(t => (
                 <div key={t.id} className="upcoming-row">
-                  <Link to={`/tournaments/${t.id}`} className="link-strong">{t.name}</Link>
+                  <Link to={`/tournaments/${t.id}/details`} className="link-strong">{t.name}</Link>
                   <span className="muted"> — {formatDate(t.start_date)}{t.city ? ` • ${t.city}` : ''}</span>
                 </div>
               ))}

@@ -9,7 +9,7 @@
   margin-bottom: 1rem;
   background-color: #fff;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
@@ -401,4 +401,41 @@
     margin-bottom: 1rem;
   }
 
+}
+
+/* ZMIEŃ/DODAJ TO W tournamentRegistrationsAdmin.css */
+
+/* Nadpisanie globalnej klasy .container dla tej konkretnej sekcji */
+/* Plik do edycji: tournamentRegistrationsAdmin.css */
+
+/* Nadpisanie globalnej klasy .container dla tej sekcji */
+.container.reg-admin {
+    /* Ustawienie szerokości maksymalnej na 98% widoku (98vw),
+       dzięki czemu kontener zajmie prawie całą szerokość ekranu. */
+    max-width: 98vw !important; 
+    
+    /* Wymuś centrowanie */
+    margin-left: auto !important;
+    margin-right: auto !important;
+    
+    /* Zapewnienie równych marginesów/paddingów, które psuły wizualne wyrównanie */
+    padding-left: 10px !important; 
+    padding-right: 10px !important;
+    
+    box-sizing: border-box;
+}
+
+/* Upewnienie się, że element nagłówkowy jest wyrównany z tym paddingiem */
+.reg-admin-header {
+    /* Usuń potencjalne marginesy/paddingi, które psułyby wyrównanie */
+    margin-left: 0;
+    margin-right: 0;
+}
+/* ─────────────────────────────────────────────────────────────── */
+/* 4) Kontener przewijania dla tabeli                             */
+/* ─────────────────────────────────────────────────────────────── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto; /* Włącza przewijanie w poziomie, gdy tabela wystaje */
+  margin-bottom: 1rem;
 }

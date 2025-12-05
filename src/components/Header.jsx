@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 import '../styles/header.css';
 import SidebarMenu from './SidebarMenu';
 import NotificationBell from './NotificationBell';
+import HighContrastToggle from './HighContrastToggle';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -66,6 +67,7 @@ export default function Header() {
               <NotificationBell />
             </div>
           )}
+          <HighContrastToggle />
 
           {user ? (
             <div className="user-menu">
@@ -123,6 +125,7 @@ export default function Header() {
           <Link to="/tournaments/mine" onClick={toggleSidebar}>Moje turnieje</Link>
           <Link to="/registrations/mine" onClick={toggleSidebar}>Moje zgłoszenia</Link>
           <Link to="/timetable" onClick={toggleSidebar}>Terminarz</Link>
+          <Link to="/account" onClick={toggleSidebar}>Moje konto</Link>
           {(() => {
             const appRoles = user?.appRoles || [];
             const isPriv = user?.role === 'admin'

@@ -21,6 +21,8 @@ import TournamentBracket from './components/TournamentBracket';
 import TimetablePage from './pages/TimetablePage';
 import PublicProfilePage from './pages/PublicProfilePage';
 import AdminPanel from './pages/AdminPanel';
+import AccountSettingsPage from './pages/AccountSettingsPage';
+
 
 export default function App() {
   return (
@@ -126,6 +128,16 @@ export default function App() {
               </PrivateRoute>
             }
           />
+
+          <Route
+            path="/account"
+            element={
+              <PrivateRoute>
+                <AccountSettingsPage />
+              </PrivateRoute>
+            }
+          />
+
 
           <Route path="/u/:id" element={<PublicProfilePage />} />
 

@@ -1,3 +1,4 @@
+// client/src/pages/NewTournamentsPage.jsx
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import TournamentForm from '../components/TournamentForm';

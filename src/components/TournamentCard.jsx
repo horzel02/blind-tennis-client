@@ -10,17 +10,24 @@ import {
 
 export default function TournamentCard({ tournament }) {
   const navigate = useNavigate();
-  const { id, name, start_date, end_date, city, applicationsOpen } = tournament;
+  const { id, name, start_date, end_date, city, applicationsOpen, type } = tournament;
 
   const catChips = getCategoryChips(tournament);
   const genderChips = getGenderChips(tournament);
   const catLabel = catChips[0] || '—';
   const genderLabel = genderChips.length ? genderLabelPL(genderChips[0]) : '—';
   const formulaLabel = ({
-    open: 'Open',
     towarzyski: 'Towarzyski',
     mistrzowski: 'Mistrzowski'
   })[tournament.formula] || 'Open';
+  const isInviteOnly = type === 'invite';
+  const statusLabel = isInviteOnly
+    ? 'Tylko na zaproszenie'
+    : applicationsOpen
+      ? 'Przyjmowanie zgłoszeń'
+      : hasLimit
+        ? 'Brak miejsc'
+        : 'Zamknięte zgłoszenia';
 
   return (
     <article className="card" tabIndex="0" role="region" aria-labelledby={`tour-${id}-title`}>
@@ -39,7 +46,7 @@ export default function TournamentCard({ tournament }) {
 
       {city && <p className="card-location">Lokalizacja: {city}</p>}
       <p className={`card-meta ${applicationsOpen ? 'open' : 'closed'}`}>
-        {applicationsOpen ? 'Przyjmowanie zgłoszeń' : 'Zamknięte zgłoszenia'}
+        {statusLabel}
       </p>
 
       <div className="card-actions">

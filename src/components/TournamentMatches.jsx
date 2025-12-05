@@ -1,3 +1,4 @@
+// src/components/TournamentMatches.jsx
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -368,7 +369,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     if (guardReadOnly()) return;
     try {
       const res = await matchService.generateGroupsAndKO(tournamentId);
-      toast.success(`Wygenerowano fazę grupową + szkielet KO (${res?.count ?? '?' } meczów).`);
+      toast.success(`Wygenerowano fazę grupową + szkielet KO (${res?.count ?? '?'} meczów).`);
       await fetchForTab();
     } catch (e) {
       toast.error(e.message || 'Błąd generowania grup/KO');
@@ -379,7 +380,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
     if (guardReadOnly()) return;
     try {
       const res = await matchService.seedKnockout(tournamentId, { overwrite: true });
-      toast.success(`Zasiano KO od ${res?.baseRound || 'rundy'} (zaktualizowano ${res?.updated ?? res?.changed ?? '?' } meczów).`);
+      toast.success(`Zasiano KO od ${res?.baseRound || 'rundy'} (zaktualizowano ${res?.updated ?? res?.changed ?? '?'} meczów).`);
       await fetchForTab();
     } catch (e) {
       toast.error(e.message || 'Błąd zasiewania KO');
@@ -711,8 +712,8 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
         {match.matchTime
           ? <div className="pill pill-time">
-              {fmtDT(match.matchTime)} {match.courtNumber ? `• Kort ${match.courtNumber}` : ''}
-            </div>
+            {fmtDT(match.matchTime)} {match.courtNumber ? `• Kort ${match.courtNumber}` : ''}
+          </div>
           : <div className="pill pill-muted">Termin: TBA</div>
         }
 
@@ -720,8 +721,8 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           <div className="pill pill-admin">
             {match.resultType === 'WALKOVER' ? 'Walkover'
               : match.resultType === 'DISQUALIFICATION' ? 'Dyskwalifikacja'
-              : match.resultType === 'RETIREMENT' ? 'Krecz'
-              : match.resultType}
+                : match.resultType === 'RETIREMENT' ? 'Krecz'
+                  : match.resultType}
           </div>
         )}
 
@@ -807,8 +808,19 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
 
         {/* informacja o blokadzie */}
         {readOnly && (
-          <div className="notice-blocked" role="status" aria-live="polite"
-               style={{margin:'8px 0 0', padding:'8px 12px', background:'#fff3cd', border:'1px solid #ffe69c', borderRadius:8, color:'#664d03'}}>
+          <div
+            className="notice-blocked"
+            role="status"
+            aria-live="polite"
+            style={{
+              margin: '8px 0 0',
+              padding: '8px 12px',
+              background: '#fff3cd',
+              border: '1px solid #ffe69c',
+              borderRadius: 8,
+              color: '#664d03',
+            }}
+          >
             Ten turniej jest zablokowany — akcje organizatora i sędziego są niedostępne.
           </div>
         )}
@@ -818,6 +830,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
           <div className="ko-toolbar">
             {settings?.format === 'GROUPS_KO' ? (
               <>
+                {/* RZĄD 1 – trzy główne przyciski */}
                 <div className="ko-row">
                   <button
                     className="btn-primary"
@@ -828,31 +841,37 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                         ? 'Turniej zablokowany'
                         : hasGroupMatches
                           ? 'Najpierw usuń mecze grupowe'
-                          : 'Generuj grupy + szkielet KO'
+                          : 'Stwórz grupy + szkielet drabinki'
                     }
                   >
-                    Generuj grupy + KO (szkielet)
+                    Stwórz grupy + szkielet drabinki
                   </button>
 
                   <button
                     className="btn-primary"
                     onClick={handleSeedKO}
                     disabled={readOnly}
-                    title={readOnly ? 'Turniej zablokowany' : 'Zasiej KO (wg ustawień)'}
+                    title={
+                      readOnly
+                        ? 'Turniej zablokowany'
+                        : 'Rozstaw zawodników w KO (wg ustawień)'
+                    }
                   >
-                    Zasiej KO (wg ustawień)
+                    Rozstaw zawodników w KO (wg ustawień)
                   </button>
 
-                  <label className="chk" style={{ marginLeft: 12, opacity: readOnly ? 0.6 : 1 }}>
-                    <input
-                      type="checkbox"
-                      checked={alsoKO}
-                      onChange={(e) => setAlsoKO(e.target.checked)}
-                      disabled={readOnly}
-                    />
-                    Usuń też mecze KO
-                  </label>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleGenerateKOSkeleton}
+                    disabled={readOnly}
+                    title={readOnly ? 'Turniej zablokowany' : 'Utwórz pustą drabinkę KO'}
+                  >
+                    Pusta drabinka KO
+                  </button>
+                </div>
 
+                {/* RZĄD 2 – usuwanie grup + opcja KO */}
+                <div className="ko-row">
                   <button
                     className="btn-danger"
                     onClick={handleResetGroups}
@@ -867,68 +886,138 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                   >
                     {resetBusy ? 'Usuwam…' : 'Usuń mecze grupowe'}
                   </button>
+
+                  <label
+                    className="chk"
+                    style={{ opacity: readOnly ? 0.6 : 1 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={alsoKO}
+                      onChange={(e) => setAlsoKO(e.target.checked)}
+                      disabled={readOnly}
+                    />
+                    Usuń także mecze KO
+                  </label>
                 </div>
+
+                {/* RZĄD 3 – reset KO od wybranej rundy */}
+                {availableResetRounds.length > 0 && (
+                  <div className="ko-row ko-row--reset">
+                    <strong>Wyczyść KO od rundy:</strong>
+                    <select
+                      value={resetFrom}
+                      onChange={(e) => setResetFrom(e.target.value)}
+                      className="select"
+                      disabled={readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : undefined}
+                    >
+                      {availableResetRounds.map((r) => (
+                        <option key={r} value={r}>
+                          {r === '1/64' || r === '1/32' || r === '1/16' || r === '1/8'
+                            ? `${r} finału`
+                            : r}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn-danger"
+                      onClick={handleResetKO}
+                      disabled={readOnly}
+                      title={
+                        readOnly
+                          ? 'Turniej zablokowany'
+                          : 'Wyczyść mecze KO od wybranej rundy'
+                      }
+                    >
+                      Wyczyść od tej rundy
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
-              <div className="ko-row">
-                <button
-                  className="btn-primary"
-                  onClick={handleGenerateKOOnly}
-                  disabled={readOnly}
-                  title={readOnly ? 'Turniej zablokowany' : 'Generuj KO (losowo)'}
-                >
-                  Generuj KO (losowo)
-                </button>
-              </div>
-            )}
+              <>
+                {/* KO_ONLY – RZĄD 1 */}
+                <div className="ko-row">
+                  <button
+                    className="btn-primary"
+                    onClick={handleGenerateKOOnly}
+                    disabled={readOnly}
+                    title={
+                      readOnly
+                        ? 'Turniej zablokowany'
+                        : 'Wygeneruj drabinkę KO (losowo)'
+                    }
+                  >
+                    Wygeneruj drabinkę KO (losowo)
+                  </button>
 
-            <button
-              className="btn-secondary"
-              onClick={handleGenerateKOSkeleton}
-              disabled={readOnly}
-              title={readOnly ? 'Turniej zablokowany' : 'Utwórz pustą drabinkę KO'}
-            >
-              Pusta drabinka KO
-            </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleGenerateKOSkeleton}
+                    disabled={readOnly}
+                    title={readOnly ? 'Turniej zablokowany' : 'Utwórz pustą drabinkę KO'}
+                  >
+                    Pusta drabinka KO
+                  </button>
+                </div>
 
-            {availableResetRounds.length > 0 && (
-              <div className="ko-row">
-                <strong>Reset KO od rundy:</strong>
-                <select
-                  value={resetFrom}
-                  onChange={(e) => setResetFrom(e.target.value)}
-                  className="select"
-                  disabled={readOnly}
-                  title={readOnly ? 'Turniej zablokowany' : undefined}
-                >
-                  {availableResetRounds.map((r) => (
-                    <option key={r} value={r}>
-                      {r === '1/64' || r === '1/32' || r === '1/16' || r === '1/8' ? `${r} finału` : r}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn-danger"
-                  onClick={handleResetKO}
-                  disabled={readOnly}
-                  title={readOnly ? 'Turniej zablokowany' : 'Wyczyść mecze KO od wybranej rundy'}
-                >
-                  Resetuj od tej rundy
-                </button>
-              </div>
+                {/* KO_ONLY – RZĄD 2 (reset KO) */}
+                {availableResetRounds.length > 0 && (
+                  <div className="ko-row ko-row--reset">
+                    <strong>Wyczyść KO od rundy:</strong>
+                    <select
+                      value={resetFrom}
+                      onChange={(e) => setResetFrom(e.target.value)}
+                      className="select"
+                      disabled={readOnly}
+                      title={readOnly ? 'Turniej zablokowany' : undefined}
+                    >
+                      {availableResetRounds.map((r) => (
+                        <option key={r} value={r}>
+                          {r === '1/64' || r === '1/32' || r === '1/16' || r === '1/8'
+                            ? `${r} finału`
+                            : r}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn-danger"
+                      onClick={handleResetKO}
+                      disabled={readOnly}
+                      title={
+                        readOnly
+                          ? 'Turniej zablokowany'
+                          : 'Wyczyść mecze KO od wybranej rundy'
+                      }
+                    >
+                      Wyczyść od tej rundy
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
+
 
         {/* BULK toolbar – tylko dla organizatora */}
         {isTournyOrg && (
           <div className="bulk-toolbar">
             <div className="bulk-row">
-              <button className="btn-secondary" onClick={selectAllVisible} disabled={readOnly}
-                      title={readOnly ? 'Turniej zablokowany' : 'Zaznacz wszystkie widoczne'}>
+              <button
+                className="btn-secondary"
+                onClick={selectAllVisible}
+                disabled={readOnly}
+                title={readOnly ? 'Turniej zablokowany' : 'Zaznacz wszystkie widoczne'}
+              >
                 Zaznacz widoczne
               </button>
-              <button className="btn-secondary" onClick={clearSelection} disabled={!anySelected}>
+              <button
+                className="btn-secondary"
+                onClick={clearSelection}
+                disabled={!anySelected}
+              >
                 Wyczyść wybór
               </button>
 
@@ -940,7 +1029,9 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
                 title={
                   readOnly
                     ? 'Turniej zablokowany'
-                    : (anySelected ? 'Przypisz sędziego do zaznaczonych meczów' : 'Zaznacz mecze')
+                    : anySelected
+                      ? 'Przypisz sędziego do zaznaczonych meczów'
+                      : 'Zaznacz mecze'
                 }
               >
                 Przydziel sędziego… ({selected.size})
@@ -952,7 +1043,13 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
         {isTournyOrg && (
           <button
             className="btn-primary"
-            onClick={() => { if (readOnly) { toast.error('Turniej jest zablokowany.'); return; } setOpenAuto(true); }}
+            onClick={() => {
+              if (readOnly) {
+                toast.error('Turniej jest zablokowany.');
+                return;
+              }
+              setOpenAuto(true);
+            }}
             disabled={readOnly}
             title={readOnly ? 'Turniej zablokowany' : 'Automatyczne zaplanowanie meczów'}
           >
@@ -1080,7 +1177,7 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
             <div className="pair-modal__footer">
               <button className="btn-secondary" onClick={closeRefModal}>Anuluj</button>
               <button className="btn-primary" onClick={saveRefAssign} disabled={refLoading || readOnly}
-                      title={readOnly ? 'Turniej zablokowany' : undefined}>
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 {chosenRef ? 'Przypisz do zaznaczonych' : 'Usuń sędziego w zaznaczonych'}
               </button>
             </div>
@@ -1098,85 +1195,87 @@ export default function TournamentMatches({ roles: rolesProp = [] }) {
             </div>
 
             <div className="pair-modal__body">
-              <div className="pairing-row">
-                <label className="pairing-label">Zawodnik A</label>
-                <div className="pairing-combo" ref={p1ComboRef}>
-                  <input
-                    className="pairing-input"
-                    placeholder="Szukaj zawodnika…"
-                    value={p1Query}
-                    onFocus={() => setP1Open(true)}
-                    onChange={(e) => { setP1Query(e.target.value); setP1User(null); setP1Open(true); }}
-                    onKeyDown={(e) => { if (e.key === 'Escape') setP1Open(false); }}
-                    disabled={readOnly}
-                  />
-                  {p1User && isUsedInSameRoundElsewhere(p1User.id) && (
-                    <p className="pairing-hint">Ten zawodnik jest już w innym meczu tej rundy.</p>
-                  )}
-
-                  {p1Open && !readOnly && (
-                    <ul className="pairing-list">
-                      {filterEligible(p1Query, p2User?.id).length ? (
-                        filterEligible(p1Query, p2User?.id).map((u) => (
-                          <li
-                            key={u.id}
-                            onMouseDown={() => { setP1User(u); setP1Query(`${u.name} ${u.surname}`); setP1Open(false); }}
-                          >
-                            {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="muted">Brak dopuszczonych</li>
-                      )}
-                    </ul>
-                  )}
+              <div className="pairing-grid">
+                <div className="pairing-row">
+                  <label className="pairing-label">Zawodnik A</label>
+                  <div className="pairing-combo player-one" ref={p1ComboRef}>
+                    <input
+                      className="pairing-input"
+                      placeholder="Szukaj zawodnika…"
+                      value={p1Query}
+                      onFocus={() => setP1Open(true)}
+                      onChange={(e) => { setP1Query(e.target.value); setP1User(null); setP1Open(true); }}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setP1Open(false); }}
+                      disabled={readOnly}
+                    />
+                    {p1User && isUsedInSameRoundElsewhere(p1User.id) && (
+                      <p className="pairing-hint">Ten zawodnik jest już w innym meczu tej rundy.</p>
+                    )}
+                    {p1Open && !readOnly && (
+                      <ul className="pairing-list">
+                        {filterEligible(p1Query, p2User?.id).length ? (
+                          filterEligible(p1Query, p2User?.id).map((u) => (
+                            <li
+                              key={u.id}
+                              onMouseDown={() => { setP1User(u); setP1Query(`${u.name} ${u.surname}`); setP1Open(false); }}
+                            >
+                              {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="muted">Brak dopuszczonych</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="pairing-row">
-                <label className="pairing-label">Zawodnik B</label>
-                <div className="pairing-combo" ref={p2ComboRef}>
-                  <input
-                    className="pairing-input"
-                    placeholder="Szukaj zawodnika…"
-                    value={p2Query}
-                    onFocus={() => setP2Open(true)}
-                    onChange={(e) => { setP2Query(e.target.value); setP2User(null); setP2Open(true); }}
-                    onKeyDown={(e) => { if (e.key === 'Escape') setP2Open(false); }}
-                    disabled={readOnly}
-                  />
-                  {p2User && isUsedInSameRoundElsewhere(p2User.id) && (
-                    <p className="pairing-hint">Ten zawodnik jest już w innym meczu tej rundy.</p>
-                  )}
-                  {p2Open && !readOnly && (
-                    <ul className="pairing-list">
-                      {filterEligible(p2Query, p1User?.id).length ? (
-                        filterEligible(p2Query, p1User?.id).map((u) => (
-                          <li
-                            key={u.id}
-                            onMouseDown={() => { setP2User(u); setP2Query(`${u.name} ${u.surname}`); setP2Open(false); }}
-                          >
-                            {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="muted">Brak dopuszczonych</li>
-                      )}
-                    </ul>
-                  )}
+                <div className="pairing-row">
+                  <label className="pairing-label">Zawodnik B</label>
+                  <div className="pairing-combo player-two" ref={p2ComboRef}>
+                    <input
+                      className="pairing-input"
+                      placeholder="Szukaj zawodnika…"
+                      value={p2Query}
+                      onFocus={() => setP2Open(true)}
+                      onChange={(e) => { setP2Query(e.target.value); setP2User(null); setP2Open(true); }}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setP2Open(false); }}
+                      disabled={readOnly}
+                    />
+                    {p2User && isUsedInSameRoundElsewhere(p2User.id) && (
+                      <p className="pairing-hint">Ten zawodnik jest już w innym meczu tej rundy.</p>
+                    )}
+                    {p2Open && !readOnly && (
+                      <ul className="pairing-list">
+                        {filterEligible(p2Query, p1User?.id).length ? (
+                          filterEligible(p2Query, p1User?.id).map((u) => (
+                            <li
+                              key={u.id}
+                              onMouseDown={() => { setP2User(u); setP2Query(`${u.name} ${u.surname}`); setP2Open(false); }}
+                            >
+                              {u.name} {u.surname}{u.email ? ` (${u.email})` : ''}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="muted">Brak dopuszczonych</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
+
             <div className="pair-modal__footer">
               <button className="btn-secondary" onClick={swapSides} disabled={readOnly}
-                      title={readOnly ? 'Turniej zablokowany' : undefined}>
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Zamień strony
               </button>
               <div className="pair-modal__spacer" />
               <button className="btn-secondary" onClick={closePairingModal}>Anuluj</button>
               <button className="btn-primary" onClick={savePairing} disabled={readOnly}
-                      title={readOnly ? 'Turniej zablokowany' : undefined}>
+                title={readOnly ? 'Turniej zablokowany' : undefined}>
                 Zapisz
               </button>
             </div>
