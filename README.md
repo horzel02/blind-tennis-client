@@ -1,12 +1,40 @@
-# React + Vite
+# 🎾 Blind Tennis Tournament Manager - Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend interface for the Blind Tennis Management System. Built with React and Vite, it provides a responsive and accessible UI for organizers, referees, and visually impaired players.
 
-Currently, two official plugins are available:
+## 🚀 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+* **🎨 Accessibility First:** Dedicated High Contrast Mode and accessible navigation structure for visually impaired users.
+* **📊 Interactive Dashboards:**
+    * **Organizer Panel:** Manage participants, generate brackets, and approve registrations.
+    * **Referee Panel:** Real-time scoring form with validation for sets, gems, and tie-breaks.
+* **⚡ Real-Time Data:** Live updates for match results and notifications using **Socket.io Client**.
+* **📱 Responsive Design:** Fully functional on desktop and mobile devices.
+* **🏆 Visual Brackets:** Dynamic rendering of tournament trees (Knockout phase) and group tables.
 
-## Expanding the ESLint configuration
+## 🛠️ Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+* **Framework:** React 18
+* **Build Tool:** Vite
+* **Routing:** React Router
+* **Icons:** Lucide React
+* **Notifications:** React-Toastify
+
+## 📂 Project Structure
+
+The source code is organized as follows:
+
+* `components/` - Reusable UI elements (Forms, Tables, Cards).
+* `pages/` - Full page views (Tournament Details, Dashboard, Profile).
+* `contexts/` - Global state management (Auth, Theme).
+* `services/` - API communication modules.
+* `styles/` - Global styles and Tailwind config.
+
+## 👥 User Roles
+
+The interface adapts based on the user's role:
+* **Guest:** View tournaments and public profiles.
+* **Player:** Manage registrations and view personal schedule.
+* **Guardian:** View associated player's schedule and results.
+* **Referee:** Input match scores.
+* **Organizer:** Full tournament administration.
